@@ -1,4 +1,5 @@
 #include "camera/CameraManager.h"
+#include "camera/StreamUrlPolicy.h"
 
 #include <QSignalSpy>
 #include <QTest>
@@ -33,6 +34,9 @@ private slots:
     void defaultStateIsDisconnected();
     void fullscreenLifecycle();
     void focusHasNoSideEffects();
+    void mosaicPrefersSubUrl();
+    void mosaicVideoItemsExistPerCamera();
+    void pipelinesNotStartedUntilStartCalled();
 };
 
 void TestCameraManager::listModelReflectsConfig()
@@ -80,6 +84,40 @@ void TestCameraManager::focusHasNoSideEffects()
     manager.focus(QStringLiteral("front"));
     QCOMPARE(spy.count(), 0);
     QVERIFY(manager.currentFullscreenId().isEmpty());
+}
+
+void TestCameraManager::mosaicPrefersSubUrl()
+{
+    const auto cameras = makeConfig().cameras;
+    QCOMPARE(StreamUrlPolicy::mosaicUrl(cameras[0]), QStringLiteral("rtsp://a/sub")); // has subUrl
+    QCOMPARE(StreamUrlPolicy::mosaicUrl(cameras[1]), QStringLiteral("rtsp://b/main")); // no subUrl
+    QCOMPARE(StreamUrlPolicy::fullscreenUrl(cameras[0]), QStringLiteral("rtsp://a/main"));
+}
+
+void TestCameraManager::mosaicVideoItemsExistPerCamera()
+{
+    CameraManager manager(makeConfig());
+    QVERIFY(manager.mosaicVideoItem(QStringLiteral("front")) != nullptr);
+    QVERIFY(manager.mosaicVideoItem(QStringLiteral("garden")) != nullptr);
+    QVERIFY(manager.mosaicVideoItem(QStringLiteral("nope")) == nullptr);
+    QVERIFY(manager.fullscreenVideoItem() == nullptr);
+
+    manager.enterFullscreen(QStringLiteral("front"));
+    QVERIFY(manager.fullscreenVideoItem() != nullptr);
+}
+
+void TestCameraManager::pipelinesNotStartedUntilStartCalled()
+{
+    // Constructing (and even entering fullscreen on) a CameraManager must
+    // never trigger real network I/O on its own -- only start() does. This
+    // is what keeps this whole test file fast and network-free using fake
+    // rtsp:// URLs.
+    CameraManager manager(makeConfig());
+    QCOMPARE(manager.listModel()->data(manager.listModel()->index(0), CameraListModel::StateRole).toInt(),
+              static_cast<int>(CameraState::Disconnected));
+    manager.enterFullscreen(QStringLiteral("front"));
+    QCOMPARE(manager.listModel()->data(manager.listModel()->index(0), CameraListModel::StateRole).toInt(),
+              static_cast<int>(CameraState::Disconnected));
 }
 
 QTEST_APPLESS_MAIN(TestCameraManager)

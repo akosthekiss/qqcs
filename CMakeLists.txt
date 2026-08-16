@@ -67,3 +67,4 @@ target_link_libraries(qqcs PRIVATE
 enable_testing()
 add_subdirectory(tests)
 add_subdirectory(tools/smoke_single_stream)
+add_subdirectory(tools/smoke_multi_stream)
