@@ -35,8 +35,24 @@ Item {
     }
 
     MouseArea {
+        id: panArea
         anchors.fill: parent
+        property point lastPos
+
         onWheel: (wheel) => navigationController.handleWheelZoom(wheel.angleDelta.y, Qt.point(wheel.x, wheel.y))
+
+        onPressed: (mouse) => { lastPos = Qt.point(mouse.x, mouse.y) }
+
+        // SPEC §19: left-button-drag pans only while zoomed in; at
+        // zoom==1.0 this is simply inert (no camera-switch side effect --
+        // that's Left/Right key input, a separate InputAction path).
+        onPositionChanged: (mouse) => {
+            if (!pressed || navigationController.zoom <= 1.0)
+                return
+            const delta = Qt.point(mouse.x - lastPos.x, mouse.y - lastPos.y)
+            navigationController.handlePanDragDelta(delta)
+            lastPos = Qt.point(mouse.x, mouse.y)
+        }
     }
 
     StatusOverlay {

@@ -83,6 +83,19 @@ int main(int argc, char *argv[])
         });
     }
 
+    // Manual dev/debug aid: simulate a pan drag delta (comma-separated
+    // "dx,dy"), to verify pan rendering/clamping without synthesizing real
+    // GUI drag events through the window system.
+    if (const char *panDelta = std::getenv("QQCS_DEBUG_PAN_DELTA")) {
+        const QByteArrayList parts = QByteArray(panDelta).split(',');
+        if (parts.size() == 2) {
+            const qreal dx = parts.at(0).toDouble();
+            const qreal dy = parts.at(1).toDouble();
+            QTimer::singleShot(2500, &navigationController,
+                                [&navigationController, dx, dy] { navigationController.handlePanDragDelta(QPointF(dx, dy)); });
+        }
+    }
+
     // Manual dev/debug aid: dump a frame of the (possibly occluded/off-screen)
     // main window without depending on OS-level screen capture permissions.
     if (const char *shotPath = std::getenv("QQCS_DEBUG_SCREENSHOT")) {
