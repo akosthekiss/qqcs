@@ -38,6 +38,8 @@ CameraManager::CameraManager(AppConfig config, QObject *parent)
             m_listModel->setReconnectInfo(row, pipeline->reconnectSecondsRemaining(), pipeline->reconnectBackoffSeconds(),
                                            pipeline->reconnectCount());
         });
+        connect(runtime.mosaicPipeline, &RtspStreamPipeline::hasAudioChanged, m_listModel,
+                [this, row](bool hasAudio) { m_listModel->setHasAudio(row, hasAudio); });
 
         m_runtimes.push_back(std::move(runtime));
     }
@@ -141,14 +143,23 @@ void CameraManager::switchFullscreenCamera(const QString &id)
     if (!runtime)
         return;
 
+    // SPEC §13: the previous camera's audio must stop before the new one's
+    // starts. teardownFullscreenPipeline() stops the whole old pipeline
+    // (video included) right after, but disabling audio explicitly first
+    // keeps the ordering intent visible and correct even if that changes.
+    if (m_fullscreenPipeline)
+        m_fullscreenPipeline->enableAudio(false);
     teardownFullscreenPipeline();
 
     m_fullscreenPipeline = std::make_unique<RtspStreamPipeline>(StreamUrlPolicy::fullscreenUrl(runtime->config));
     connect(m_fullscreenPipeline.get(), &RtspStreamPipeline::stateChanged, this, &CameraManager::fullscreenStatusChanged);
     connect(m_fullscreenPipeline.get(), &RtspStreamPipeline::reconnectInfoChanged, this,
             &CameraManager::fullscreenStatusChanged);
+    connect(m_fullscreenPipeline.get(), &RtspStreamPipeline::hasAudioChanged, this,
+            &CameraManager::fullscreenStatusChanged);
     if (m_started)
         m_fullscreenPipeline->start();
+    m_fullscreenPipeline->enableAudio(true); // SPEC §13: fullscreen audio is automatic, no config flag
 
     m_fullscreenId = id;
     emit fullscreenIdChanged(m_fullscreenId);
@@ -159,6 +170,7 @@ void CameraManager::teardownFullscreenPipeline()
 {
     if (!m_fullscreenPipeline)
         return;
+    m_fullscreenPipeline->enableAudio(false);
     m_fullscreenPipeline->stop();
     m_fullscreenPipeline.reset();
     emit fullscreenStatusChanged();
@@ -179,7 +191,7 @@ QVariantMap CameraManager::fullscreenStatus() const
         { QStringLiteral("cameraId"), m_fullscreenId },
         { QStringLiteral("name"), runtime ? runtime->config.name : QString() },
         { QStringLiteral("state"), static_cast<int>(m_fullscreenPipeline->state()) },
-        { QStringLiteral("hasAudio"), false }, // wired once audio capability detection lands
+        { QStringLiteral("hasAudio"), m_fullscreenPipeline->hasAudio() },
         { QStringLiteral("reconnectSeconds"), m_fullscreenPipeline->reconnectSecondsRemaining() },
         { QStringLiteral("reconnectBackoff"), m_fullscreenPipeline->reconnectBackoffSeconds() },
         { QStringLiteral("reconnectCount"), m_fullscreenPipeline->reconnectCount() },

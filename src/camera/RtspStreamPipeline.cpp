@@ -5,13 +5,24 @@
 
 #include <gst/app/gstappsink.h>
 #include <gst/gst.h>
+#include <gst/sdp/sdp.h>
 
 #include <QLoggingCategory>
+#include <QSet>
 
 namespace {
 Q_LOGGING_CATEGORY(lcCamera, "qqcs.camera")
 constexpr int kRtspProtocolsTcp = 0x00000004; // GST_RTSP_LOWER_TRANS_TCP
 constexpr int kRtspLatencyMs = 150;
+
+bool isDecodableAudioCodec(const QString &encodingName)
+{
+    static const QSet<QString> kSupported = {
+        QStringLiteral("PCMA"),          QStringLiteral("PCMU"), QStringLiteral("AAC"),
+        QStringLiteral("MPEG4-GENERIC"), QStringLiteral("OPUS"),
+    };
+    return kSupported.contains(encodingName.toUpper());
+}
 }
 
 RtspStreamPipeline::RtspStreamPipeline(QString rtspUrl, QObject *parent)
@@ -88,6 +99,7 @@ void RtspStreamPipeline::buildAndStartPipeline()
     gst_caps_unref(caps);
 
     g_signal_connect(m_source, "pad-added", G_CALLBACK(&RtspStreamPipeline::padAddedCallback), this);
+    g_signal_connect(m_source, "on-sdp", G_CALLBACK(&RtspStreamPipeline::onSdpCallback), this);
     g_signal_connect(m_appsink, "new-sample", G_CALLBACK(&RtspStreamPipeline::newSampleCallback), this);
 
     gst_bin_add_many(GST_BIN(m_pipeline), m_source, m_appsink, nullptr);
@@ -113,6 +125,13 @@ void RtspStreamPipeline::teardownPipeline()
         gst_object_unref(m_bus);
         m_bus = nullptr;
     }
+    if (m_audioPad) {
+        gst_object_unref(m_audioPad);
+        m_audioPad = nullptr;
+    }
+    m_audioElements.clear();
+    m_audioElementSet.clear();
+    m_audioPlaybackError = false;
     if (m_pipeline) {
         gst_object_unref(m_pipeline);
         m_pipeline = nullptr;
@@ -150,6 +169,20 @@ void RtspStreamPipeline::handleBusMessage(GstMessage *message)
         GError *err = nullptr;
         gchar *debug = nullptr;
         gst_message_parse_error(message, &err, &debug);
+        // SPEC §13: audio failures must never affect video/CameraState.
+        // Identify the failing element by direct pointer membership rather
+        // than name-prefix matching, so this can't misfire on a
+        // coincidentally-named video element.
+        if (m_audioElementSet.contains(GST_ELEMENT(GST_MESSAGE_SRC(message)))) {
+            qCWarning(lcCamera).noquote() << m_rtspUrl << "audio playback error:" << (err ? err->message : "unknown");
+            if (err)
+                g_error_free(err);
+            if (debug)
+                g_free(debug);
+            m_audioPlaybackError = true;
+            teardownAudioBranch();
+            break;
+        }
         qCWarning(lcCamera).noquote() << m_rtspUrl << "pipeline error:" << (err ? err->message : "unknown");
         if (err)
             g_error_free(err);
@@ -196,12 +229,24 @@ void RtspStreamPipeline::handlePadAdded(GstPad *pad)
     const GstStructure *s = gst_caps_get_structure(caps, 0);
     const gchar *media = gst_structure_get_string(s, "media");
     const gchar *encodingName = gst_structure_get_string(s, "encoding-name");
-    if (!media || QString::fromUtf8(media) != QStringLiteral("video") || !encodingName) {
+    if (!media || !encodingName) {
         gst_caps_unref(caps);
         return;
     }
+    const QString mediaType = QString::fromUtf8(media);
     const QString codec = QString::fromUtf8(encodingName);
     gst_caps_unref(caps);
+
+    if (mediaType == QStringLiteral("audio")) {
+        if (m_audioPad)
+            gst_object_unref(m_audioPad);
+        m_audioPad = GST_PAD(gst_object_ref(pad));
+        if (m_audioEnabled)
+            buildAudioBranch();
+        return;
+    }
+    if (mediaType != QStringLiteral("video"))
+        return;
 
     const bool isH265 = codec.compare(QStringLiteral("H265"), Qt::CaseInsensitive) == 0;
     const QString depayName = isH265 ? QStringLiteral("rtph265depay") : QStringLiteral("rtph264depay");
@@ -264,4 +309,127 @@ void RtspStreamPipeline::handleFirstSample()
 {
     setState(CameraState::Live);
     m_reconnectScheduler.onConnectSucceeded();
+}
+
+void RtspStreamPipeline::onSdpCallback(GstElement *, void *sdp, void *userData)
+{
+    static_cast<RtspStreamPipeline *>(userData)->handleOnSdp(sdp);
+}
+
+void RtspStreamPipeline::handleOnSdp(void *sdpVoid)
+{
+    auto *sdp = static_cast<GstSDPMessage *>(sdpVoid);
+    // SPEC §20.1: capability only, from the SDP alone -- no decoder or
+    // sink is ever instantiated just to learn this, so it's free even for
+    // mosaic pipelines that will never call enableAudio(true).
+    bool foundDecodableAudio = false;
+    const guint mediaCount = gst_sdp_message_medias_len(sdp);
+    for (guint i = 0; i < mediaCount && !foundDecodableAudio; ++i) {
+        const GstSDPMedia *media = gst_sdp_message_get_media(sdp, i);
+        if (!media || QString::fromUtf8(gst_sdp_media_get_media(media)) != QStringLiteral("audio"))
+            continue;
+        const guint attrCount = gst_sdp_media_attributes_len(media);
+        for (guint a = 0; a < attrCount; ++a) {
+            const GstSDPAttribute *attr = gst_sdp_media_get_attribute(media, a);
+            if (!attr || QString::fromUtf8(attr->key) != QStringLiteral("rtpmap"))
+                continue;
+            // rtpmap value looks like "8 PCMA/8000" -- codec name is the
+            // second whitespace-separated token, before any '/'.
+            const QStringList parts = QString::fromUtf8(attr->value).split(QLatin1Char(' '));
+            if (parts.size() < 2)
+                continue;
+            const QString codecName = parts.at(1).split(QLatin1Char('/')).first();
+            if (isDecodableAudioCodec(codecName)) {
+                foundDecodableAudio = true;
+                break;
+            }
+        }
+    }
+
+    if (foundDecodableAudio != m_hasAudio) {
+        m_hasAudio = foundDecodableAudio;
+        emit hasAudioChanged(m_hasAudio);
+    }
+}
+
+void RtspStreamPipeline::enableAudio(bool enabled)
+{
+    if (m_audioEnabled == enabled)
+        return;
+    m_audioEnabled = enabled;
+    if (enabled) {
+        if (m_audioPad)
+            buildAudioBranch();
+        // else: pad hasn't appeared yet -- handlePadAdded() builds it once it does.
+    } else {
+        teardownAudioBranch();
+    }
+}
+
+void RtspStreamPipeline::buildAudioBranch()
+{
+    if (!m_audioElements.isEmpty() || !m_pipeline || !m_audioPad)
+        return;
+
+    GstElement *queue = gst_element_factory_make("queue", nullptr);
+    GstElement *decodebin = gst_element_factory_make("decodebin", nullptr);
+    GstElement *convert = gst_element_factory_make("audioconvert", nullptr);
+    GstElement *resample = gst_element_factory_make("audioresample", nullptr);
+    GstElement *sink = gst_element_factory_make("autoaudiosink", nullptr);
+
+    if (!queue || !decodebin || !convert || !resample || !sink) {
+        qCWarning(lcCamera) << "Failed to instantiate audio branch for" << m_rtspUrl;
+        m_audioPlaybackError = true;
+        return;
+    }
+
+    gst_bin_add_many(GST_BIN(m_pipeline), queue, decodebin, convert, resample, sink, nullptr);
+    gst_element_link(queue, decodebin);
+    gst_element_link_many(convert, resample, sink, nullptr);
+    // decodebin's output pad only appears once it auto-plugs a decoder for
+    // whatever codec is actually negotiated -- a second level of dynamic
+    // pad-linking, separate from rtspsrc's own pad-added above.
+    g_signal_connect(decodebin, "pad-added", G_CALLBACK(&RtspStreamPipeline::decodebinPadAddedCallback), this);
+
+    gst_element_sync_state_with_parent(queue);
+    gst_element_sync_state_with_parent(decodebin);
+    gst_element_sync_state_with_parent(convert);
+    gst_element_sync_state_with_parent(resample);
+    gst_element_sync_state_with_parent(sink);
+
+    GstPad *queueSinkPad = gst_element_get_static_pad(queue, "sink");
+    gst_pad_link(m_audioPad, queueSinkPad);
+    gst_object_unref(queueSinkPad);
+
+    m_audioElements = { queue, decodebin, convert, resample, sink };
+    m_audioElementSet = { queue, decodebin, convert, resample, sink };
+    m_audioPlaybackError = false;
+}
+
+void RtspStreamPipeline::teardownAudioBranch()
+{
+    if (m_audioElements.isEmpty())
+        return;
+    for (GstElement *element : std::as_const(m_audioElements)) {
+        gst_element_set_state(element, GST_STATE_NULL);
+        gst_bin_remove(GST_BIN(m_pipeline), element);
+    }
+    m_audioElements.clear();
+    m_audioElementSet.clear();
+}
+
+void RtspStreamPipeline::decodebinPadAddedCallback(GstElement *, GstPad *pad, void *userData)
+{
+    static_cast<RtspStreamPipeline *>(userData)->handleDecodebinPadAdded(pad);
+}
+
+void RtspStreamPipeline::handleDecodebinPadAdded(GstPad *pad)
+{
+    if (m_audioElements.size() < 3)
+        return;
+    GstElement *convert = m_audioElements.at(2); // audioconvert
+    GstPad *sinkPad = gst_element_get_static_pad(convert, "sink");
+    if (!gst_pad_is_linked(sinkPad))
+        gst_pad_link(pad, sinkPad);
+    gst_object_unref(sinkPad);
 }
