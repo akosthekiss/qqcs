@@ -27,3 +27,8 @@ qt_add_executable(test_cecmapping test_cecmapping.cpp)
 target_link_libraries(test_cecmapping PRIVATE Qt6::Test qqcs_cec)
 target_include_directories(test_cecmapping PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 add_test(NAME test_cecmapping COMMAND test_cecmapping)
+
+qt_add_executable(test_videofillmath test_videofillmath.cpp)
+target_link_libraries(test_videofillmath PRIVATE Qt6::Test qqcs_camera)
+target_include_directories(test_videofillmath PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+add_test(NAME test_videofillmath COMMAND test_videofillmath)
