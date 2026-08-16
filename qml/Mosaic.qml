@@ -1,9 +1,9 @@
 import QtQuick
 
-// SPEC §8/§9: grid of every configured camera, COVER fill (crop allowed,
-// never distorted, never letterboxed). Column count from layout.columns;
-// row count derived automatically. Focus handling and navigation land in
-// a later milestone.
+// SPEC §8/§9/§10: grid of every configured camera, COVER fill (crop
+// allowed, never distorted, never letterboxed). Column count from
+// layout.columns; row count derived automatically. Focused tile is
+// whichever index NavigationController currently holds.
 Item {
     id: root
 
@@ -36,6 +36,7 @@ Item {
                 cameraState: cell.state
                 hasAudio: cell.hasAudio
                 reconnectSeconds: cell.reconnectSeconds
+                isFocused: cell.index === navigationController.focusedMosaicIndex
             }
         }
     }
