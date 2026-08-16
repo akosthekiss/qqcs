@@ -6,6 +6,12 @@ import QtQuick
 Item {
     id: root
 
+    property var info: ({})
+
+    function refreshInfo() {
+        info = cameraListModel.rowData(navigationController.fullscreenIndex)
+    }
+
     Rectangle {
         anchors.fill: parent
         color: "black"
@@ -16,12 +22,23 @@ Item {
         anchors.fill: parent
     }
 
+    StatusOverlay {
+        anchors.fill: parent
+        cameraName: root.info.name || ""
+        cameraState: root.info.state !== undefined ? root.info.state : 0
+        hasAudio: root.info.hasAudio || false
+        reconnectSeconds: root.info.reconnectSeconds !== undefined ? root.info.reconnectSeconds : -1
+    }
+
     function reattach() {
         if (navigationController.isFullscreen)
             cameraManager.attachFullscreenVideo(videoSlot)
     }
 
-    Component.onCompleted: reattach()
+    Component.onCompleted: {
+        reattach()
+        refreshInfo()
+    }
 
     Connections {
         // Deliberately targets cameraManager, not navigationController:
@@ -33,5 +50,15 @@ Item {
         // separate object) is not guaranteed.
         target: cameraManager
         function onFullscreenIdChanged(id) { root.reattach() }
+    }
+
+    Connections {
+        target: navigationController
+        function onFullscreenIndexChanged() { root.refreshInfo() }
+    }
+
+    Connections {
+        target: cameraListModel
+        function onDataChanged() { root.refreshInfo() }
     }
 }

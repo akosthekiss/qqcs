@@ -18,6 +18,10 @@ Item {
             id: cell
             required property int index
             required property string cameraId
+            required property string name
+            required property int state
+            required property bool hasAudio
+            required property int reconnectSeconds
 
             width: root.width / root.columns
             height: root.rowCount > 0 ? root.height / root.rowCount : root.height
@@ -28,6 +32,10 @@ Item {
                 anchors.fill: parent
                 cameraId: cell.cameraId
                 tileIndex: cell.index
+                cameraName: cell.name
+                cameraState: cell.state
+                hasAudio: cell.hasAudio
+                reconnectSeconds: cell.reconnectSeconds
             }
         }
     }

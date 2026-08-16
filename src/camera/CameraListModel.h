@@ -4,6 +4,7 @@
 #include "config/AppConfig.h"
 
 #include <QAbstractListModel>
+#include <QVariantMap>
 #include <QVector>
 
 // Read-only data seam handed to the UI layer (SPEC §5: "GUI ne kezelje
@@ -47,6 +48,12 @@ public:
     int indexOfId(const QString &id) const;
     int count() const { return m_entries.size(); }
     const Entry &entryAt(int row) const { return m_entries.at(row); }
+
+    // QML convenience for non-delegate lookups (e.g. Fullscreen.qml showing
+    // whichever camera is currently active), where the automatic
+    // model-role-as-required-property binding Repeater delegates get
+    // doesn't apply.
+    Q_INVOKABLE QVariantMap rowData(int row) const;
 
     void setState(int row, CameraState state);
     void setHasAudio(int row, bool hasAudio);

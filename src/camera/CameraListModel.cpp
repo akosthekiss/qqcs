@@ -66,6 +66,20 @@ QHash<int, QByteArray> CameraListModel::roleNames() const
     };
 }
 
+QVariantMap CameraListModel::rowData(int row) const
+{
+    if (row < 0 || row >= m_entries.size())
+        return {};
+    const Entry &entry = m_entries.at(row);
+    return {
+        { QStringLiteral("cameraId"), entry.config.id },
+        { QStringLiteral("name"), entry.config.name },
+        { QStringLiteral("state"), static_cast<int>(entry.state) },
+        { QStringLiteral("hasAudio"), entry.hasAudio },
+        { QStringLiteral("reconnectSeconds"), entry.reconnectSeconds },
+    };
+}
+
 int CameraListModel::indexOfId(const QString &id) const
 {
     for (int i = 0; i < m_entries.size(); ++i) {

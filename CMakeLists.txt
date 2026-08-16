@@ -56,6 +56,7 @@ qt_add_qml_module(qqcs
         qml/Mosaic.qml
         qml/CameraTile.qml
         qml/Fullscreen.qml
+        qml/StatusOverlay.qml
 )
 
 target_link_libraries(qqcs PRIVATE
