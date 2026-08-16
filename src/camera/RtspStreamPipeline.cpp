@@ -15,6 +15,13 @@ namespace {
 Q_LOGGING_CATEGORY(lcCamera, "qqcs.camera")
 constexpr int kRtspProtocolsTcp = 0x00000004; // GST_RTSP_LOWER_TRANS_TCP
 constexpr int kRtspLatencyMs = 150;
+// SPEC §30: Raspberry Pi 5 has no HW video-decode block (Broadcom removed
+// it vs Pi4), so avdec_h264/avdec_h265 (software, via gst-libav) is the
+// expected decode path there, not just a fallback. Capping each
+// decoder's own thread pool keeps N concurrent mosaic decodes from all
+// fighting over every core; this property only exists on avdec_* (not
+// vtdec/vah264dec), so it's set conditionally below.
+constexpr int kDecoderMaxThreads = 2;
 
 // The diagnostics overlay is a TV-facing, potentially-photographable
 // display; RTSP URLs commonly embed credentials (rtsp://user:pass@host/...)
@@ -325,6 +332,9 @@ void RtspStreamPipeline::handlePadAdded(GstPad *pad)
         handleStreamFailure();
         return;
     }
+
+    if (g_object_class_find_property(G_OBJECT_GET_CLASS(decoder), "max-threads"))
+        g_object_set(decoder, "max-threads", kDecoderMaxThreads, nullptr);
 
     gst_bin_add_many(GST_BIN(m_pipeline), depay, parse, decoder, convert, nullptr);
     if (!gst_element_link_many(depay, parse, decoder, convert, m_appsink, nullptr)) {
