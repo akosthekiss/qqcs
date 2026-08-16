@@ -1,0 +1,31 @@
+# Alternative to qqcs.service, for keeping the stock Raspberry Pi OS
+# desktop (labwc/wayfire) instead of the recommended eglfs/KMS kiosk mode.
+#
+# This is a *user* unit, not a system service, since it must run inside an
+# already-running graphical Wayland session -- it cannot start the
+# compositor itself. Requires the Pi configured for desktop autologin.
+#
+# Install as: ~/.config/systemd/user/qqcs-wayland.service
+# Enable with: systemctl --user enable --now qqcs-wayland.service
+# (run this from inside the graphical session, e.g. via an autostart
+# entry that runs `systemctl --user start qqcs-wayland.service`, or by
+# enabling it once and letting the [Install] target handle it on login.)
+
+[Unit]
+Description=QQCS Security Camera Monitor (Wayland session)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+Environment=QT_QPA_PLATFORM=wayland
+Environment=QQCS_CONFIG=/etc/qqcs/config.yaml
+ExecStart=/usr/bin/qqcs
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=qqcs
+
+[Install]
+WantedBy=graphical-session.target
