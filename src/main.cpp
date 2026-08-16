@@ -1,8 +1,10 @@
 #include "camera/CameraManager.h"
 #include "config/ConfigModel.h"
+#include "input/InputManager.h"
 #include "navigation/NavigationController.h"
 
 #include <QGuiApplication>
+#include <QKeyEvent>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
@@ -44,6 +46,10 @@ int main(int argc, char *argv[])
     NavigationController navigationController(cameraManager.cameraIds(), configModel.appConfig().layout.columns);
     navigationController.setShortcutMap(cameraManager.shortcutDigitToIndex());
 
+    InputManager inputManager;
+    QObject::connect(&inputManager, &InputManager::actionTriggered, &navigationController,
+                      &NavigationController::handleInputAction);
+
     // NavigationController owns view/zoom/pan state; CameraManager owns
     // pipeline lifecycle. Connected here (before the QML engine loads) so
     // pipeline switches always happen before any QML Connections reacting
@@ -58,6 +64,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("cameraManager"), &cameraManager);
     engine.rootContext()->setContextProperty(QStringLiteral("cameraListModel"), cameraManager.listModel());
     engine.rootContext()->setContextProperty(QStringLiteral("navigationController"), &navigationController);
+    engine.rootContext()->setContextProperty(QStringLiteral("inputManager"), &inputManager);
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed,
         &app, [] { QCoreApplication::exit(-1); },
@@ -94,6 +101,24 @@ int main(int argc, char *argv[])
             QTimer::singleShot(2500, &navigationController,
                                 [&navigationController, dx, dy] { navigationController.handlePanDragDelta(QPointF(dx, dy)); });
         }
+    }
+
+    // Manual dev/debug aid: inject a real QKeyEvent into the window (same
+    // Qt Quick focus-item delivery path OS input would use), to verify the
+    // QML Keys.onPressed -> inputManager.handleKeyEvent wiring without
+    // needing OS-level Accessibility permissions for synthetic keystrokes.
+    if (const char *injectKey = std::getenv("QQCS_DEBUG_INJECT_KEY")) {
+        const int key = QByteArray(injectKey).toInt();
+        QTimer::singleShot(1500, &engine, [&engine, key] {
+            if (engine.rootObjects().isEmpty())
+                return;
+            if (auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first())) {
+                QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier);
+                QCoreApplication::sendEvent(window, &press);
+                QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier);
+                QCoreApplication::sendEvent(window, &release);
+            }
+        });
     }
 
     // Manual dev/debug aid: dump a frame of the (possibly occluded/off-screen)

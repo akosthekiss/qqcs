@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QMetaType>
+
 // SPEC.md §24, verbatim. NavigationController (not InputManager) decides
 // what each action means in the current view/zoom state -- InputManager
 // always emits the same action regardless of app state.
@@ -29,6 +31,8 @@ enum class InputAction {
 
     ToggleDiagnostics
 };
+
+Q_DECLARE_METATYPE(InputAction)
 
 // Returns 0-9 for Camera0..Camera9, -1 otherwise.
 inline int cameraShortcutDigit(InputAction action)
