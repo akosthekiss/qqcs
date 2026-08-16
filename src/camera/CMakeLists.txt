@@ -14,6 +14,6 @@ add_library(qqcs_camera STATIC
 
 target_include_directories(qqcs_camera PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
 target_link_libraries(qqcs_camera
-    PUBLIC Qt6::Core Qt6::Quick qqcs_config
+    PUBLIC Qt6::Core Qt6::Quick Qt6::Qml qqcs_config
     PRIVATE PkgConfig::GST
 )

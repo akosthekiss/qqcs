@@ -5,6 +5,7 @@
 #include "config/AppConfig.h"
 
 #include <QObject>
+#include <QQuickItem>
 #include <QString>
 #include <QVector>
 #include <memory>
@@ -25,6 +26,7 @@ public:
 
     CameraListModel *listModel() const { return m_listModel; }
     QString currentFullscreenId() const { return m_fullscreenId; }
+    Q_INVOKABLE QString firstCameraId() const { return m_runtimes.isEmpty() ? QString() : m_runtimes.first().config.id; }
 
     // Starts every mosaic pipeline. Deliberately not done in the
     // constructor, so constructing a CameraManager in tests never triggers
@@ -34,6 +36,13 @@ public:
 
     AppSinkVideoItem *mosaicVideoItem(const QString &id) const;
     AppSinkVideoItem *fullscreenVideoItem() const;
+
+    // Reparents the given camera's video item into `container` and anchors
+    // it to fill that container. Called from QML (Component.onCompleted on
+    // a plain placeholder Item) so QML never needs to know AppSinkVideoItem
+    // exists as a type -- it only ever manipulates its own Item.
+    Q_INVOKABLE void attachMosaicVideo(const QString &id, QQuickItem *container);
+    Q_INVOKABLE void attachFullscreenVideo(QQuickItem *container);
 
     Q_INVOKABLE void focus(const QString &id);
     Q_INVOKABLE void enterFullscreen(const QString &id);

@@ -29,6 +29,11 @@ public:
 
     Q_INVOKABLE bool reload();
 
+    // First existing path among /etc/qqcs/config.yaml, ~/.config/qqcs/config.yaml,
+    // ./config.yaml (in that order); falls back to ./config.yaml if none exist.
+    // main.cpp checks --config and $QQCS_CONFIG before falling back to this.
+    static QString resolveDefaultPath();
+
 signals:
     void validChanged();
     void configPathChanged();

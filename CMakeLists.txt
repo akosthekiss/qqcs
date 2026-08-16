@@ -51,7 +51,7 @@ qt_add_qml_module(qqcs
     URI QqcsUi
     VERSION 1.0
     QML_FILES
-        qml/main.qml
+        qml/Main.qml
 )
 
 target_link_libraries(qqcs PRIVATE

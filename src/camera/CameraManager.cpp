@@ -1,6 +1,22 @@
 #include "CameraManager.h"
 
+#include "AppSinkVideoItem.h"
 #include "StreamUrlPolicy.h"
+
+#include <QQmlProperty>
+#include <QVariant>
+
+namespace {
+
+void attachVideoItem(AppSinkVideoItem *videoItem, QQuickItem *container)
+{
+    if (!videoItem || !container)
+        return;
+    videoItem->setParentItem(container);
+    QQmlProperty(videoItem, QStringLiteral("anchors.fill")).write(QVariant::fromValue(container));
+}
+
+} // namespace
 
 CameraManager::CameraManager(AppConfig config, QObject *parent)
     : QObject(parent)
@@ -52,6 +68,16 @@ AppSinkVideoItem *CameraManager::mosaicVideoItem(const QString &id) const
 AppSinkVideoItem *CameraManager::fullscreenVideoItem() const
 {
     return m_fullscreenPipeline ? m_fullscreenPipeline->videoItem() : nullptr;
+}
+
+void CameraManager::attachMosaicVideo(const QString &id, QQuickItem *container)
+{
+    attachVideoItem(mosaicVideoItem(id), container);
+}
+
+void CameraManager::attachFullscreenVideo(QQuickItem *container)
+{
+    attachVideoItem(fullscreenVideoItem(), container);
 }
 
 void CameraManager::focus(const QString &id)
