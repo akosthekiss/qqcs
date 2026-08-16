@@ -24,7 +24,7 @@ Item {
     readonly property color stateColor: isLive ? "#3ddc55" : (isLost ? "#e0463b" : "#c9c9c9")
     readonly property bool showName: configModel.overlay.showName && cameraName.length > 0
     readonly property bool showStatusLine: configModel.overlay.showStatus
-    readonly property string audioSuffix: showAudioStatus ? (hasAudio ? " (AUDIO)" : " (NO AUDIO)") : ""
+    readonly property string audioSuffix: showAudioStatus ? (hasAudio ? " (WITH AUDIO)" : " (NO AUDIO)") : ""
 
     visible: configModel.overlay.enabled && (showName || showStatusLine)
 

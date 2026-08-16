@@ -72,6 +72,17 @@ int main(int argc, char *argv[])
                             [&navigationController, index] { navigationController.selectMosaicTile(index); });
     }
 
+    // Manual dev/debug aid: simulate N wheel-zoom-in steps at the viewport
+    // center, to verify zoom rendering without synthesizing real GUI wheel
+    // events through the window system.
+    if (const char *zoomSteps = std::getenv("QQCS_DEBUG_ZOOM_STEPS")) {
+        const int steps = QByteArray(zoomSteps).toInt();
+        QTimer::singleShot(1500, &navigationController, [&navigationController, steps] {
+            for (int i = 0; i < steps; ++i)
+                navigationController.handleWheelZoom(1.0, QPointF(640, 360));
+        });
+    }
+
     // Manual dev/debug aid: dump a frame of the (possibly occluded/off-screen)
     // main window without depending on OS-level screen capture permissions.
     if (const char *shotPath = std::getenv("QQCS_DEBUG_SCREENSHOT")) {

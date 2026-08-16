@@ -1,8 +1,10 @@
 import QtQuick
 
-// SPEC §11: full available screen, video aspect unchanged, CONTAIN at
-// zoom==1.0 (letterbox/pillarbox allowed). Zoom/pan land in a later
-// milestone; this is the 1.0x-only view.
+// SPEC §11/§14/§18: full available screen, video aspect unchanged.
+// zoom==1.0 -> CONTAIN (letterbox allowed). zoom>1.0 -> the whole
+// transformRoot is scaled around the viewport center and translated by
+// pan, so it always fills the viewport with no black bars, matching
+// ZOOM/COVER regardless of native video aspect ratio (SPEC §34).
 Item {
     id: root
 
@@ -18,8 +20,23 @@ Item {
     }
 
     Item {
-        id: videoSlot
+        id: transformRoot
+        width: parent.width
+        height: parent.height
+        transformOrigin: Item.Center
+        scale: navigationController.zoom
+        x: navigationController.pan.x
+        y: navigationController.pan.y
+
+        Item {
+            id: videoSlot
+            anchors.fill: parent
+        }
+    }
+
+    MouseArea {
         anchors.fill: parent
+        onWheel: (wheel) => navigationController.handleWheelZoom(wheel.angleDelta.y, Qt.point(wheel.x, wheel.y))
     }
 
     StatusOverlay {
