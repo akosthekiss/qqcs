@@ -42,6 +42,7 @@ option(QQCS_ENABLE_CEC "Enable HDMI-CEC support via libCEC" ${QQCS_IS_RPI})
 
 add_subdirectory(src/config)
 add_subdirectory(src/camera)
+add_subdirectory(src/navigation)
 
 qt_add_executable(qqcs
     src/main.cpp
@@ -64,6 +65,7 @@ target_link_libraries(qqcs PRIVATE
     yaml-cpp::yaml-cpp
     qqcs_config
     qqcs_camera
+    qqcs_navigation
 )
 
 enable_testing()
