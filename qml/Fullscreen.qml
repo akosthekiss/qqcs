@@ -64,6 +64,10 @@ Item {
         showAudioStatus: true // SPEC: audio status only meaningful where audio actually plays
     }
 
+    DiagnosticsOverlay {
+        anchors.fill: parent
+    }
+
     function reattach() {
         if (navigationController.isFullscreen)
             cameraManager.attachFullscreenVideo(videoSlot)

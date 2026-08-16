@@ -40,6 +40,9 @@ public:
     // CameraListModel, which only ever reflects mosaic pipelines.
     Q_INVOKABLE QVariantMap fullscreenStatus() const;
 
+    // SPEC §22, fullscreen-only (same rationale as audio status).
+    Q_INVOKABLE QVariantMap fullscreenDiagnostics() const;
+
     // Starts every mosaic pipeline. Deliberately not done in the
     // constructor, so constructing a CameraManager in tests never triggers
     // real network I/O; only main.cpp (and the multi-stream smoke tool)

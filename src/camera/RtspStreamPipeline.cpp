@@ -9,11 +9,26 @@
 
 #include <QLoggingCategory>
 #include <QSet>
+#include <QUrl>
 
 namespace {
 Q_LOGGING_CATEGORY(lcCamera, "qqcs.camera")
 constexpr int kRtspProtocolsTcp = 0x00000004; // GST_RTSP_LOWER_TRANS_TCP
 constexpr int kRtspLatencyMs = 150;
+
+// The diagnostics overlay is a TV-facing, potentially-photographable
+// display; RTSP URLs commonly embed credentials (rtsp://user:pass@host/...)
+// and SPEC §22 only needs the URL for debugging host/path issues, not to
+// put a password on screen.
+QString maskUrlCredentials(const QString &url)
+{
+    QUrl parsed(url);
+    if (parsed.userName().isEmpty() && parsed.password().isEmpty())
+        return url;
+    parsed.setUserName(QStringLiteral("***"));
+    parsed.setPassword(QStringLiteral("***"));
+    return parsed.toString();
+}
 
 bool isDecodableAudioCodec(const QString &encodingName)
 {
@@ -22,6 +37,23 @@ bool isDecodableAudioCodec(const QString &encodingName)
         QStringLiteral("MPEG4-GENERIC"), QStringLiteral("OPUS"),
     };
     return kSupported.contains(encodingName.toUpper());
+}
+
+// Free functions, not class members: GstPadProbeCallback is a strictly-
+// typed C function pointer (gst_pad_add_probe calls through it directly,
+// unlike GLib signals' G_CALLBACK blind-cast), so keeping GstPadProbeInfo
+// confined to this .cpp is what keeps it out of RtspStreamPipeline.h.
+GstPadProbeReturn onBitrateProbe(GstPad *, GstPadProbeInfo *info, gpointer userData)
+{
+    if (GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info))
+        static_cast<RtspStreamPipeline *>(userData)->addBitrateBytes(static_cast<qint64>(gst_buffer_get_size(buffer)));
+    return GST_PAD_PROBE_OK;
+}
+
+GstPadProbeReturn onAppsinkBufferProbe(GstPad *, GstPadProbeInfo *, gpointer userData)
+{
+    static_cast<RtspStreamPipeline *>(userData)->noteAppsinkBufferArrived();
+    return GST_PAD_PROBE_OK;
 }
 }
 
@@ -32,6 +64,11 @@ RtspStreamPipeline::RtspStreamPipeline(QString rtspUrl, QObject *parent)
     connect(&m_busPollTimer, &QTimer::timeout, this, &RtspStreamPipeline::pollBus);
     connect(&m_reconnectScheduler, &ReconnectScheduler::attemptDue, this, &RtspStreamPipeline::retryConnect);
     connect(&m_reconnectScheduler, &ReconnectScheduler::tick, this, &RtspStreamPipeline::reconnectInfoChanged);
+
+    m_bitrateTimer.setInterval(1000);
+    connect(&m_bitrateTimer, &QTimer::timeout, this,
+            [this] { m_currentBitrateBps = m_bitrateByteAccumulator.fetchAndStoreRelaxed(0) * 8; });
+    m_bitrateTimer.start();
 }
 
 RtspStreamPipeline::~RtspStreamPipeline()
@@ -102,10 +139,21 @@ void RtspStreamPipeline::buildAndStartPipeline()
     g_signal_connect(m_source, "on-sdp", G_CALLBACK(&RtspStreamPipeline::onSdpCallback), this);
     g_signal_connect(m_appsink, "new-sample", G_CALLBACK(&RtspStreamPipeline::newSampleCallback), this);
 
+    GstPad *appsinkSinkPad = gst_element_get_static_pad(m_appsink, "sink");
+    gst_pad_add_probe(appsinkSinkPad, GST_PAD_PROBE_TYPE_BUFFER, &onAppsinkBufferProbe, this, nullptr);
+    gst_object_unref(appsinkSinkPad);
+
     gst_bin_add_many(GST_BIN(m_pipeline), m_source, m_appsink, nullptr);
 
     m_bus = gst_pipeline_get_bus(GST_PIPELINE(m_pipeline));
     m_seenFirstSample = false;
+    m_bitrateByteAccumulator.storeRelaxed(0);
+    m_currentBitrateBps = 0;
+    m_appsinkBufferCount.storeRelaxed(0);
+    m_pulledSampleCount.storeRelaxed(0);
+    m_videoCodec.clear();
+    m_fps = 0.0;
+    m_audioCodecName.clear();
 
     const GstStateChangeReturn ret = gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
     if (ret == GST_STATE_CHANGE_FAILURE) {
@@ -235,6 +283,11 @@ void RtspStreamPipeline::handlePadAdded(GstPad *pad)
     }
     const QString mediaType = QString::fromUtf8(media);
     const QString codec = QString::fromUtf8(encodingName);
+    // Read while `s` (a view into `caps`) is still valid -- must happen
+    // before gst_caps_unref() below, which may free it immediately.
+    double fps = 0.0;
+    if (const gchar *framerateStr = gst_structure_get_string(s, "a-framerate"))
+        fps = QString::fromUtf8(framerateStr).toDouble();
     gst_caps_unref(caps);
 
     if (mediaType == QStringLiteral("audio")) {
@@ -247,6 +300,9 @@ void RtspStreamPipeline::handlePadAdded(GstPad *pad)
     }
     if (mediaType != QStringLiteral("video"))
         return;
+
+    m_videoCodec = codec;
+    m_fps = fps;
 
     const bool isH265 = codec.compare(QStringLiteral("H265"), Qt::CaseInsensitive) == 0;
     const QString depayName = isH265 ? QStringLiteral("rtph265depay") : QStringLiteral("rtph264depay");
@@ -286,6 +342,10 @@ void RtspStreamPipeline::handlePadAdded(GstPad *pad)
     gst_pad_link(pad, sinkPad);
     gst_object_unref(sinkPad);
 
+    GstPad *depaySrcPad = gst_element_get_static_pad(depay, "src");
+    gst_pad_add_probe(depaySrcPad, GST_PAD_PROBE_TYPE_BUFFER, &onBitrateProbe, this, nullptr);
+    gst_object_unref(depaySrcPad);
+
     m_dynamicElements = { depay, parse, decoder, convert };
 }
 
@@ -297,6 +357,7 @@ int RtspStreamPipeline::newSampleCallback(GstElement *sink, void *userData)
         return static_cast<int>(GST_FLOW_ERROR);
 
     self->m_videoItem->pushSample(sample); // takes ownership
+    self->m_pulledSampleCount.fetchAndAddRelaxed(1);
 
     if (!self->m_seenFirstSample) {
         self->m_seenFirstSample = true;
@@ -339,6 +400,7 @@ void RtspStreamPipeline::handleOnSdp(void *sdpVoid)
             if (parts.size() < 2)
                 continue;
             const QString codecName = parts.at(1).split(QLatin1Char('/')).first();
+            m_audioCodecName = codecName; // diagnostic display, even if not decodable
             if (isDecodableAudioCodec(codecName)) {
                 foundDecodableAudio = true;
                 break;
@@ -432,4 +494,23 @@ void RtspStreamPipeline::handleDecodebinPadAdded(GstPad *pad)
     if (!gst_pad_is_linked(sinkPad))
         gst_pad_link(pad, sinkPad);
     gst_object_unref(sinkPad);
+}
+
+Diagnostics RtspStreamPipeline::diagnostics() const
+{
+    Diagnostics d;
+    d.videoCodec = m_videoCodec;
+    d.width = m_videoItem->nativeWidth();
+    d.height = m_videoItem->nativeHeight();
+    d.fps = m_fps;
+    d.bitrateBps = m_currentBitrateBps;
+    d.audioCodec = m_audioCodecName;
+    d.rtspTransport = QStringLiteral("TCP"); // configured value (SPEC §31); not queried from rtspsrc internals
+    d.latencyMs = -1; // N/A -- see Diagnostics.h
+    d.droppedFrames = qMax<qint64>(0, m_appsinkBufferCount.loadRelaxed() - m_pulledSampleCount.loadRelaxed());
+    d.reconnectCount = reconnectCount();
+    d.reconnectBackoffSeconds = reconnectBackoffSeconds();
+    d.reconnectCountdownSeconds = reconnectSecondsRemaining();
+    d.rtspUrl = maskUrlCredentials(m_rtspUrl);
+    return d;
 }

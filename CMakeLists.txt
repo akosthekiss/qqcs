@@ -59,6 +59,7 @@ qt_add_qml_module(qqcs
         qml/CameraTile.qml
         qml/Fullscreen.qml
         qml/StatusOverlay.qml
+        qml/DiagnosticsOverlay.qml
 )
 
 target_link_libraries(qqcs PRIVATE

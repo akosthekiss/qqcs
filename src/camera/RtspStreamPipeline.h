@@ -1,8 +1,10 @@
 #pragma once
 
 #include "CameraState.h"
+#include "Diagnostics.h"
 #include "ReconnectScheduler.h"
 
+#include <QAtomicInteger>
 #include <QObject>
 #include <QSet>
 #include <QString>
@@ -64,6 +66,17 @@ public:
     int reconnectBackoffSeconds() const { return m_reconnectScheduler.backoffSeconds(); }
     int reconnectCount() const { return m_reconnectScheduler.reconnectCount(); }
 
+    // SPEC §22.
+    Diagnostics diagnostics() const;
+
+    // Public only so the free-function pad-probe trampolines confined to
+    // the .cpp (GstPadProbeCallback is a strictly-typed C function
+    // pointer, unlike GLib signals' G_CALLBACK blind-cast, so those
+    // trampolines can't be class members without leaking GstPadProbeInfo
+    // into this header) can reach them.
+    void addBitrateBytes(qint64 bytes) { m_bitrateByteAccumulator.fetchAndAddRelaxed(bytes); }
+    void noteAppsinkBufferArrived() { m_appsinkBufferCount.fetchAndAddRelaxed(1); }
+
 signals:
     void stateChanged(CameraState state);
     void reconnectInfoChanged();
@@ -109,4 +122,14 @@ private:
 
     QTimer m_busPollTimer;
     bool m_seenFirstSample = false;
+
+    // SPEC §22 diagnostics.
+    QString m_videoCodec;
+    double m_fps = 0.0;
+    QString m_audioCodecName;
+    QAtomicInteger<qint64> m_bitrateByteAccumulator{ 0 }; // written from a GStreamer thread via a pad probe
+    qint64 m_currentBitrateBps = 0;
+    QTimer m_bitrateTimer;
+    QAtomicInteger<qint64> m_appsinkBufferCount{ 0 }; // written from a GStreamer thread via a pad probe
+    QAtomicInteger<qint64> m_pulledSampleCount{ 0 };
 };
