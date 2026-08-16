@@ -4,6 +4,7 @@
 #include "RtspStreamPipeline.h"
 #include "config/AppConfig.h"
 
+#include <QHash>
 #include <QObject>
 #include <QQuickItem>
 #include <QString>
@@ -27,6 +28,10 @@ public:
     CameraListModel *listModel() const { return m_listModel; }
     QString currentFullscreenId() const { return m_fullscreenId; }
     Q_INVOKABLE QString firstCameraId() const { return m_runtimes.isEmpty() ? QString() : m_runtimes.first().config.id; }
+
+    QStringList cameraIds() const;
+    // digit (0-9) -> index in cameraIds(), for NavigationController::setShortcutMap.
+    QHash<int, int> shortcutDigitToIndex() const;
 
     // Starts every mosaic pipeline. Deliberately not done in the
     // constructor, so constructing a CameraManager in tests never triggers

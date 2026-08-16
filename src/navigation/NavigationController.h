@@ -24,6 +24,7 @@ class NavigationController : public QObject
     Q_PROPERTY(qreal zoom READ zoom NOTIFY zoomChanged)
     Q_PROPERTY(QPointF pan READ pan NOTIFY panChanged)
     Q_PROPERTY(bool diagnosticsVisible READ diagnosticsVisible NOTIFY diagnosticsVisibleChanged)
+    Q_PROPERTY(bool isFullscreen READ isFullscreen NOTIFY viewModeChanged)
 
 public:
     enum class ViewMode { Mosaic, Fullscreen };
@@ -38,6 +39,7 @@ public:
     void setShortcutMap(const QHash<int, int> &shortcutDigitToIndex);
 
     ViewMode viewMode() const { return m_viewMode; }
+    bool isFullscreen() const { return m_viewMode == ViewMode::Fullscreen; }
     int focusedMosaicIndex() const { return m_focusedMosaicIndex; }
     int fullscreenIndex() const { return m_fullscreenIndex; }
     qreal zoom() const { return m_zoomSteps.value(m_zoomIndex, 1.0); }

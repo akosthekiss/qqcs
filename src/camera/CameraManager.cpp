@@ -86,6 +86,26 @@ void CameraManager::attachFullscreenVideo(QQuickItem *container)
     attachVideoItem(item, container);
 }
 
+QStringList CameraManager::cameraIds() const
+{
+    QStringList ids;
+    ids.reserve(m_runtimes.size());
+    for (const auto &runtime : m_runtimes)
+        ids << runtime.config.id;
+    return ids;
+}
+
+QHash<int, int> CameraManager::shortcutDigitToIndex() const
+{
+    QHash<int, int> map;
+    for (int i = 0; i < m_runtimes.size(); ++i) {
+        const CameraConfig &config = m_runtimes.at(i).config;
+        if (config.hasShortcut())
+            map[config.shortcut] = i;
+    }
+    return map;
+}
+
 void CameraManager::focus(const QString &id)
 {
     Q_UNUSED(id);

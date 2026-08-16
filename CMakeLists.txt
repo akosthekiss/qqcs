@@ -55,6 +55,7 @@ qt_add_qml_module(qqcs
         qml/Main.qml
         qml/Mosaic.qml
         qml/CameraTile.qml
+        qml/Fullscreen.qml
 )
 
 target_link_libraries(qqcs PRIVATE

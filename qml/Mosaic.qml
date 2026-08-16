@@ -27,6 +27,7 @@ Item {
             CameraTile {
                 anchors.fill: parent
                 cameraId: cell.cameraId
+                tileIndex: cell.index
             }
         }
     }

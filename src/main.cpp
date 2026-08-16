@@ -1,5 +1,6 @@
 #include "camera/CameraManager.h"
 #include "config/ConfigModel.h"
+#include "navigation/NavigationController.h"
 
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -40,28 +41,55 @@ int main(int argc, char *argv[])
     CameraManager cameraManager(configModel.appConfig());
     cameraManager.start();
 
+    NavigationController navigationController(cameraManager.cameraIds(), configModel.appConfig().layout.columns);
+    navigationController.setShortcutMap(cameraManager.shortcutDigitToIndex());
+
+    // NavigationController owns view/zoom/pan state; CameraManager owns
+    // pipeline lifecycle. Connected here (before the QML engine loads) so
+    // pipeline switches always happen before any QML Connections reacting
+    // to the same signal (Qt invokes same-signal slots in connection order).
+    QObject::connect(&navigationController, &NavigationController::fullscreenCameraActivated, &cameraManager,
+                      &CameraManager::switchFullscreenCamera);
+    QObject::connect(&navigationController, &NavigationController::fullscreenExited, &cameraManager,
+                      &CameraManager::exitFullscreen);
+
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("configModel"), &configModel);
     engine.rootContext()->setContextProperty(QStringLiteral("cameraManager"), &cameraManager);
     engine.rootContext()->setContextProperty(QStringLiteral("cameraListModel"), cameraManager.listModel());
+    engine.rootContext()->setContextProperty(QStringLiteral("navigationController"), &navigationController);
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed,
         &app, [] { QCoreApplication::exit(-1); },
         Qt::QueuedConnection);
     engine.loadFromModule("QqcsUi", "Main");
 
+    // Manual dev/debug aid: simulate a mosaic tile click without needing
+    // real GUI automation, to verify the click -> fullscreen wiring.
+    if (const char *tileIndex = std::getenv("QQCS_DEBUG_CLICK_TILE")) {
+        const int index = QByteArray(tileIndex).toInt();
+        QTimer::singleShot(1000, &navigationController,
+                            [&navigationController, index] { navigationController.selectMosaicTile(index); });
+    }
+
     // Manual dev/debug aid: dump a frame of the (possibly occluded/off-screen)
     // main window without depending on OS-level screen capture permissions.
     if (const char *shotPath = std::getenv("QQCS_DEBUG_SCREENSHOT")) {
         if (!engine.rootObjects().isEmpty()) {
             if (auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first())) {
-                QTimer::singleShot(2000, window, [window, shotPath]() {
+                QTimer::singleShot(4000, window, [window, shotPath]() {
                     window->grabWindow().save(QString::fromLocal8Bit(shotPath));
                     qInfo() << "[debug] saved screenshot to" << shotPath;
                 });
             }
         }
     }
+
+    // Manual dev/debug aid: quit naturally after N ms instead of being
+    // killed, so buffered stdout/stderr actually flushes (SIGTERM does not
+    // trigger Qt's normal shutdown flush).
+    if (const char *quitAfterMs = std::getenv("QQCS_DEBUG_QUIT_AFTER_MS"))
+        QTimer::singleShot(QByteArray(quitAfterMs).toInt(), &app, &QGuiApplication::quit);
 
     return app.exec();
 }
