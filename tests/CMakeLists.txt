@@ -22,3 +22,8 @@ qt_add_executable(test_inputmanager test_inputmanager.cpp)
 target_link_libraries(test_inputmanager PRIVATE Qt6::Test qqcs_input)
 target_include_directories(test_inputmanager PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 add_test(NAME test_inputmanager COMMAND test_inputmanager)
+
+qt_add_executable(test_cecmapping test_cecmapping.cpp)
+target_link_libraries(test_cecmapping PRIVATE Qt6::Test qqcs_cec)
+target_include_directories(test_cecmapping PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+add_test(NAME test_cecmapping COMMAND test_cecmapping)

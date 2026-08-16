@@ -1,4 +1,5 @@
 #include "camera/CameraManager.h"
+#include "cec/CecAdapter.h"
 #include "config/ConfigModel.h"
 #include "input/InputManager.h"
 #include "navigation/NavigationController.h"
@@ -49,6 +50,13 @@ int main(int argc, char *argv[])
     InputManager inputManager;
     QObject::connect(&inputManager, &InputManager::actionTriggered, &navigationController,
                       &NavigationController::handleInputAction);
+
+    // SPEC §25/§28: CEC's absence (no library linked, or no adapter found)
+    // must never block startup -- start()'s return is only ever logged.
+    CecAdapter cecAdapter;
+    QObject::connect(&cecAdapter, &CecAdapter::buttonPressed, &inputManager, &InputManager::handleCecButtonPress);
+    if (!cecAdapter.start())
+        qInfo() << "Running without HDMI-CEC.";
 
     // NavigationController owns view/zoom/pan state; CameraManager owns
     // pipeline lifecycle. Connected here (before the QML engine loads) so

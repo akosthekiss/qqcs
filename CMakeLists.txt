@@ -44,6 +44,7 @@ add_subdirectory(src/config)
 add_subdirectory(src/camera)
 add_subdirectory(src/input)
 add_subdirectory(src/navigation)
+add_subdirectory(src/cec)
 
 qt_add_executable(qqcs
     src/main.cpp
@@ -70,6 +71,7 @@ target_link_libraries(qqcs PRIVATE
     qqcs_camera
     qqcs_input
     qqcs_navigation
+    qqcs_cec
 )
 
 enable_testing()
