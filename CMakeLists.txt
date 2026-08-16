@@ -10,7 +10,7 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Core Quick Qml)
+find_package(Qt6 REQUIRED COMPONENTS Core Quick Qml Test)
 qt_standard_project_setup(REQUIRES 6.5)
 qt_policy(SET QTP0004 NEW)
 
@@ -40,6 +40,8 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "aarch
 endif()
 option(QQCS_ENABLE_CEC "Enable HDMI-CEC support via libCEC" ${QQCS_IS_RPI})
 
+add_subdirectory(src/config)
+
 qt_add_executable(qqcs
     src/main.cpp
 )
@@ -57,6 +59,7 @@ target_link_libraries(qqcs PRIVATE
     Qt6::Qml
     PkgConfig::GST
     yaml-cpp::yaml-cpp
+    qqcs_config
 )
 
 enable_testing()
