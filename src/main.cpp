@@ -92,9 +92,15 @@ int main(int argc, char *argv[])
     // events through the window system.
     if (const char *zoomSteps = std::getenv("QQCS_DEBUG_ZOOM_STEPS")) {
         const int steps = QByteArray(zoomSteps).toInt();
-        QTimer::singleShot(1500, &navigationController, [&navigationController, steps] {
+        QPointF pivot(640, 360); // default: viewport center
+        if (const char *cursor = std::getenv("QQCS_DEBUG_ZOOM_CURSOR")) {
+            const QByteArrayList parts = QByteArray(cursor).split(',');
+            if (parts.size() == 2)
+                pivot = QPointF(parts.at(0).toDouble(), parts.at(1).toDouble());
+        }
+        QTimer::singleShot(1500, &navigationController, [&navigationController, steps, pivot] {
             for (int i = 0; i < steps; ++i)
-                navigationController.handleWheelZoom(1.0, QPointF(640, 360));
+                navigationController.handleWheelZoom(1.0, pivot);
         });
     }
 
@@ -117,7 +123,10 @@ int main(int argc, char *argv[])
     // needing OS-level Accessibility permissions for synthetic keystrokes.
     if (const char *injectKey = std::getenv("QQCS_DEBUG_INJECT_KEY")) {
         const int key = QByteArray(injectKey).toInt();
-        QTimer::singleShot(1500, &engine, [&engine, key] {
+        // 2500ms: deliberately after QQCS_DEBUG_ZOOM_STEPS/CLICK_TILE's
+        // delays, so this hook can verify state-dependent behavior (e.g.
+        // Escape resetting a zoom applied by the other debug hooks first).
+        QTimer::singleShot(2500, &engine, [&engine, key] {
             if (engine.rootObjects().isEmpty())
                 return;
             if (auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first())) {

@@ -206,12 +206,20 @@ void RtspStreamPipeline::setState(CameraState state)
 
 void RtspStreamPipeline::pollBus()
 {
-    if (!m_bus)
-        return;
-    while (GstMessage *msg = gst_bus_timed_pop_filtered(
-               m_bus, 0,
-               static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS | GST_MESSAGE_STATE_CHANGED
-                                           | GST_MESSAGE_WARNING))) {
+    // Re-check m_bus at the top of every iteration, not just once before
+    // the loop: handleBusMessage() can itself call handleStreamFailure(),
+    // which tears down the pipeline (unreffing m_bus and setting it to
+    // nullptr) from inside this same loop, on the error/EOS path. Without
+    // this, the loop's own condition would call gst_bus_timed_pop_filtered
+    // on a just-nulled bus, tripping a GST_IS_BUS() assertion every time a
+    // stream failure is handled.
+    while (m_bus) {
+        GstMessage *msg = gst_bus_timed_pop_filtered(
+            m_bus, 0,
+            static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS | GST_MESSAGE_STATE_CHANGED
+                                        | GST_MESSAGE_WARNING));
+        if (!msg)
+            break;
         handleBusMessage(msg);
         gst_message_unref(msg);
     }

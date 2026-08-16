@@ -32,6 +32,7 @@ private slots:
     void verticalMove_lastRowGapsClampToNearest();
     void verticalMove_noOpAtGridEdges();
     void zoomedPan_centerPivotScalesTowardCenter();
+    void zoomedPan_offCenterPivotKeepsContentPointFixed();
     void clampPan_forcesZeroAtZoomOne();
 
     // NavigationController -- mosaic navigation (SPEC §10)
@@ -96,6 +97,30 @@ void TestNavigation::zoomedPan_centerPivotScalesTowardCenter()
     // Pivot == center (CEC/keyboard zoom): existing pan scales proportionally.
     const QPointF result = NavMath::zoomedPan(QPointF(100, 50), 1.5, 3.0, center, center);
     QCOMPARE(result, QPointF(200, 100)); // k = 2.0
+}
+
+void TestNavigation::zoomedPan_offCenterPivotKeepsContentPointFixed()
+{
+    // SPEC §16: mouse wheel zoom-to-cursor -- the content pixel under a
+    // genuinely off-center pivot (not the viewport center) must stay
+    // under that exact screen position after the zoom step. This is the
+    // actual "zoom to cursor" claim; the center-pivot test above alone
+    // can't distinguish correct zoom-to-cursor math from simple zoom-to-
+    // center math, since a center pivot can't tell the two apart.
+    const QPointF center(640, 360);
+    const QPointF cursor(800, 200); // deliberately off-center
+    const QPointF oldPan(30, -10); // also start from a non-zero pan
+    const qreal oldZoom = 1.5;
+    const qreal newZoom = 3.0;
+
+    const QPointF newPan = NavMath::zoomedPan(oldPan, oldZoom, newZoom, cursor, center);
+
+    // Model (matches Fullscreen.qml's transformRoot): screen position of a
+    // content point = center + pan + (contentOffsetFromCenter * zoom).
+    const QPointF contentOffset = (cursor - center - oldPan) / oldZoom;
+    const QPointF screenPosAfter = center + newPan + contentOffset * newZoom;
+    QVERIFY(qFuzzyCompare(screenPosAfter.x() + 1.0, cursor.x() + 1.0)); // +1 guards against comparing near-zero
+    QVERIFY(qFuzzyCompare(screenPosAfter.y() + 1.0, cursor.y() + 1.0)); // values, per qFuzzyCompare's own caveat
 }
 
 void TestNavigation::clampPan_forcesZeroAtZoomOne()
