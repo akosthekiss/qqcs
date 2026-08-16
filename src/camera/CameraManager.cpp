@@ -33,6 +33,11 @@ CameraManager::CameraManager(AppConfig config, QObject *parent)
 
         connect(runtime.mosaicPipeline, &RtspStreamPipeline::stateChanged, m_listModel,
                 [this, row](CameraState state) { m_listModel->setState(row, state); });
+        connect(runtime.mosaicPipeline, &RtspStreamPipeline::reconnectInfoChanged, m_listModel, [this, row] {
+            RtspStreamPipeline *pipeline = m_runtimes.at(row).mosaicPipeline;
+            m_listModel->setReconnectInfo(row, pipeline->reconnectSecondsRemaining(), pipeline->reconnectBackoffSeconds(),
+                                           pipeline->reconnectCount());
+        });
 
         m_runtimes.push_back(std::move(runtime));
     }
@@ -139,11 +144,15 @@ void CameraManager::switchFullscreenCamera(const QString &id)
     teardownFullscreenPipeline();
 
     m_fullscreenPipeline = std::make_unique<RtspStreamPipeline>(StreamUrlPolicy::fullscreenUrl(runtime->config));
+    connect(m_fullscreenPipeline.get(), &RtspStreamPipeline::stateChanged, this, &CameraManager::fullscreenStatusChanged);
+    connect(m_fullscreenPipeline.get(), &RtspStreamPipeline::reconnectInfoChanged, this,
+            &CameraManager::fullscreenStatusChanged);
     if (m_started)
         m_fullscreenPipeline->start();
 
     m_fullscreenId = id;
     emit fullscreenIdChanged(m_fullscreenId);
+    emit fullscreenStatusChanged();
 }
 
 void CameraManager::teardownFullscreenPipeline()
@@ -152,4 +161,27 @@ void CameraManager::teardownFullscreenPipeline()
         return;
     m_fullscreenPipeline->stop();
     m_fullscreenPipeline.reset();
+    emit fullscreenStatusChanged();
+}
+
+QVariantMap CameraManager::fullscreenStatus() const
+{
+    if (!m_fullscreenPipeline)
+        return {};
+    const CameraRuntime *runtime = nullptr;
+    for (const auto &r : m_runtimes) {
+        if (r.config.id == m_fullscreenId) {
+            runtime = &r;
+            break;
+        }
+    }
+    return {
+        { QStringLiteral("cameraId"), m_fullscreenId },
+        { QStringLiteral("name"), runtime ? runtime->config.name : QString() },
+        { QStringLiteral("state"), static_cast<int>(m_fullscreenPipeline->state()) },
+        { QStringLiteral("hasAudio"), false }, // wired once audio capability detection lands
+        { QStringLiteral("reconnectSeconds"), m_fullscreenPipeline->reconnectSecondsRemaining() },
+        { QStringLiteral("reconnectBackoff"), m_fullscreenPipeline->reconnectBackoffSeconds() },
+        { QStringLiteral("reconnectCount"), m_fullscreenPipeline->reconnectCount() },
+    };
 }

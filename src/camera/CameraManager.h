@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QQuickItem>
 #include <QString>
+#include <QVariantMap>
 #include <QVector>
 #include <memory>
 
@@ -33,6 +34,12 @@ public:
     // digit (0-9) -> index in cameraIds(), for NavigationController::setShortcutMap.
     QHash<int, int> shortcutDigitToIndex() const;
 
+    // The fullscreen (main-stream) pipeline is a different stream than its
+    // camera's mosaic tile, so it has its own independent CameraState/
+    // reconnect status -- this is deliberately separate from
+    // CameraListModel, which only ever reflects mosaic pipelines.
+    Q_INVOKABLE QVariantMap fullscreenStatus() const;
+
     // Starts every mosaic pipeline. Deliberately not done in the
     // constructor, so constructing a CameraManager in tests never triggers
     // real network I/O; only main.cpp (and the multi-stream smoke tool)
@@ -56,6 +63,7 @@ public:
 
 signals:
     void fullscreenIdChanged(const QString &id);
+    void fullscreenStatusChanged();
 
 private:
     struct CameraRuntime {

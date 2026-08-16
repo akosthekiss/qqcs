@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CameraState.h"
+#include "ReconnectScheduler.h"
 
 #include <QObject>
 #include <QString>
@@ -36,8 +37,17 @@ public:
     QString rtspUrl() const { return m_rtspUrl; }
     AppSinkVideoItem *videoItem() const { return m_videoItem; }
 
+    // SPEC §33: the scheduler is the single source of truth; these are
+    // thin pass-throughs so CameraManager can push them into
+    // CameraListModel/diagnostics without exposing ReconnectScheduler
+    // itself outside the camera subsystem.
+    int reconnectSecondsRemaining() const { return m_reconnectScheduler.secondsRemaining(); }
+    int reconnectBackoffSeconds() const { return m_reconnectScheduler.backoffSeconds(); }
+    int reconnectCount() const { return m_reconnectScheduler.reconnectCount(); }
+
 signals:
     void stateChanged(CameraState state);
+    void reconnectInfoChanged();
 
 private:
     void setState(CameraState state);
@@ -46,6 +56,9 @@ private:
     void handlePadAdded(GstPad *pad);
     void handleFirstSample();
     void teardownPipeline();
+    void buildAndStartPipeline();
+    void handleStreamFailure();
+    void retryConnect();
 
     static void padAddedCallback(GstElement *src, GstPad *pad, void *userData);
     static int newSampleCallback(GstElement *sink, void *userData);
@@ -53,6 +66,7 @@ private:
     QString m_rtspUrl;
     CameraState m_state = CameraState::Disconnected;
     AppSinkVideoItem *m_videoItem;
+    ReconnectScheduler m_reconnectScheduler;
 
     GstElement *m_pipeline = nullptr;
     GstElement *m_source = nullptr;

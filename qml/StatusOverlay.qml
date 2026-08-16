@@ -13,6 +13,9 @@ Item {
     property int cameraState: 0 // CameraState enum ordinal: Disconnected/Connecting/Live/Lost
     property bool hasAudio: false
     property int reconnectSeconds: -1
+    // Mosaic never plays audio (many parallel streams), so it has no use
+    // for this; only Fullscreen/zoom sets this true.
+    property bool showAudioStatus: false
 
     readonly property bool isConnecting: cameraState === 1
     readonly property bool isLive: cameraState === 2
@@ -21,6 +24,7 @@ Item {
     readonly property color stateColor: isLive ? "#3ddc55" : (isLost ? "#e0463b" : "#c9c9c9")
     readonly property bool showName: configModel.overlay.showName && cameraName.length > 0
     readonly property bool showStatusLine: configModel.overlay.showStatus
+    readonly property string audioSuffix: showAudioStatus ? (hasAudio ? " (AUDIO)" : " (NO AUDIO)") : ""
 
     visible: configModel.overlay.enabled && (showName || showStatusLine)
 
@@ -44,7 +48,7 @@ Item {
                 color: root.stateColor
                 font.pixelSize: 18
                 font.bold: true
-                text: "● " + root.stateText + "  " + (root.hasAudio ? "🔊" : "🔇")
+                text: "● " + root.stateText + root.audioSuffix
                       + (root.showName ? "  " + root.cameraName.toUpperCase() : "")
             }
 

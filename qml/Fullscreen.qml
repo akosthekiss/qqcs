@@ -9,7 +9,7 @@ Item {
     property var info: ({})
 
     function refreshInfo() {
-        info = cameraListModel.rowData(navigationController.fullscreenIndex)
+        info = cameraManager.fullscreenStatus()
     }
 
     Rectangle {
@@ -28,6 +28,7 @@ Item {
         cameraState: root.info.state !== undefined ? root.info.state : 0
         hasAudio: root.info.hasAudio || false
         reconnectSeconds: root.info.reconnectSeconds !== undefined ? root.info.reconnectSeconds : -1
+        showAudioStatus: true // SPEC: audio status only meaningful where audio actually plays
     }
 
     function reattach() {
@@ -40,25 +41,16 @@ Item {
         refreshInfo()
     }
 
+    // Deliberately targets cameraManager, not navigationController:
+    // cameraManager.fullscreenIdChanged/fullscreenStatusChanged are emitted
+    // only once its own pipeline switch is fully done, so reacting here can
+    // never race against pipeline creation -- unlike navigationController's
+    // fullscreenCameraActivated, whose delivery order relative to
+    // CameraManager::switchFullscreenCamera (a separate connection on a
+    // separate object) is not guaranteed.
     Connections {
-        // Deliberately targets cameraManager, not navigationController:
-        // cameraManager.fullscreenIdChanged is emitted only once its own
-        // pipeline switch is fully done, so reattaching here can never race
-        // against pipeline creation -- unlike navigationController's
-        // fullscreenCameraActivated, whose delivery order relative to
-        // CameraManager::switchFullscreenCamera (a separate connection on a
-        // separate object) is not guaranteed.
         target: cameraManager
         function onFullscreenIdChanged(id) { root.reattach() }
-    }
-
-    Connections {
-        target: navigationController
-        function onFullscreenIndexChanged() { root.refreshInfo() }
-    }
-
-    Connections {
-        target: cameraListModel
-        function onDataChanged() { root.refreshInfo() }
+        function onFullscreenStatusChanged() { root.refreshInfo() }
     }
 }

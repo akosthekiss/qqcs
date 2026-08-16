@@ -8,6 +8,8 @@ add_library(qqcs_camera STATIC
     PlatformGstElements.cpp
     AppSinkVideoItem.h
     AppSinkVideoItem.cpp
+    ReconnectScheduler.h
+    ReconnectScheduler.cpp
     RtspStreamPipeline.h
     RtspStreamPipeline.cpp
 )

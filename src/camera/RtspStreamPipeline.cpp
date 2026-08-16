@@ -15,10 +15,12 @@ constexpr int kRtspLatencyMs = 150;
 }
 
 RtspStreamPipeline::RtspStreamPipeline(QString rtspUrl, QObject *parent)
-    : QObject(parent), m_rtspUrl(std::move(rtspUrl)), m_videoItem(new AppSinkVideoItem)
+    : QObject(parent), m_rtspUrl(std::move(rtspUrl)), m_videoItem(new AppSinkVideoItem), m_reconnectScheduler(this)
 {
     m_busPollTimer.setInterval(20);
     connect(&m_busPollTimer, &QTimer::timeout, this, &RtspStreamPipeline::pollBus);
+    connect(&m_reconnectScheduler, &ReconnectScheduler::attemptDue, this, &RtspStreamPipeline::retryConnect);
+    connect(&m_reconnectScheduler, &ReconnectScheduler::tick, this, &RtspStreamPipeline::reconnectInfoChanged);
 }
 
 RtspStreamPipeline::~RtspStreamPipeline()
@@ -31,15 +33,41 @@ void RtspStreamPipeline::start()
 {
     if (m_pipeline)
         return;
+    setState(CameraState::Connecting);
+    buildAndStartPipeline();
+}
 
+void RtspStreamPipeline::stop()
+{
+    m_busPollTimer.stop();
+    teardownPipeline();
+    setState(CameraState::Disconnected);
+}
+
+void RtspStreamPipeline::retryConnect()
+{
+    m_reconnectScheduler.onAttemptStarted(); // hides countdown, goes Connecting (SPEC §20.2)
+    setState(CameraState::Connecting);
+    buildAndStartPipeline();
+}
+
+void RtspStreamPipeline::handleStreamFailure()
+{
+    m_busPollTimer.stop();
+    teardownPipeline();
+    setState(CameraState::Lost);
+    m_reconnectScheduler.onConnectionLost();
+}
+
+void RtspStreamPipeline::buildAndStartPipeline()
+{
     m_pipeline = gst_pipeline_new(nullptr);
     m_source = gst_element_factory_make("rtspsrc", nullptr);
     m_appsink = gst_element_factory_make("appsink", nullptr);
 
     if (!m_pipeline || !m_source || !m_appsink) {
         qCWarning(lcCamera) << "Failed to create base pipeline elements for" << m_rtspUrl;
-        teardownPipeline();
-        setState(CameraState::Lost);
+        handleStreamFailure();
         return;
     }
 
@@ -66,24 +94,15 @@ void RtspStreamPipeline::start()
 
     m_bus = gst_pipeline_get_bus(GST_PIPELINE(m_pipeline));
     m_seenFirstSample = false;
-    setState(CameraState::Connecting);
 
     const GstStateChangeReturn ret = gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
     if (ret == GST_STATE_CHANGE_FAILURE) {
         qCWarning(lcCamera) << "Failed to start pipeline for" << m_rtspUrl;
-        teardownPipeline();
-        setState(CameraState::Lost);
+        handleStreamFailure();
         return;
     }
 
     m_busPollTimer.start();
-}
-
-void RtspStreamPipeline::stop()
-{
-    m_busPollTimer.stop();
-    teardownPipeline();
-    setState(CameraState::Disconnected);
 }
 
 void RtspStreamPipeline::teardownPipeline()
@@ -136,12 +155,12 @@ void RtspStreamPipeline::handleBusMessage(GstMessage *message)
             g_error_free(err);
         if (debug)
             g_free(debug);
-        setState(CameraState::Lost);
+        handleStreamFailure();
         break;
     }
     case GST_MESSAGE_EOS:
         qCWarning(lcCamera).noquote() << m_rtspUrl << "end of stream";
-        setState(CameraState::Lost);
+        handleStreamFailure();
         break;
     case GST_MESSAGE_WARNING: {
         GError *err = nullptr;
@@ -191,7 +210,7 @@ void RtspStreamPipeline::handlePadAdded(GstPad *pad)
 
     if (decoderName.isEmpty()) {
         qCWarning(lcCamera) << "No usable decoder for codec" << codec << "on" << m_rtspUrl;
-        setState(CameraState::Lost);
+        handleStreamFailure();
         return;
     }
 
@@ -202,14 +221,14 @@ void RtspStreamPipeline::handlePadAdded(GstPad *pad)
 
     if (!depay || !parse || !decoder || !convert) {
         qCWarning(lcCamera) << "Failed to instantiate decode chain for" << m_rtspUrl;
-        setState(CameraState::Lost);
+        handleStreamFailure();
         return;
     }
 
     gst_bin_add_many(GST_BIN(m_pipeline), depay, parse, decoder, convert, nullptr);
     if (!gst_element_link_many(depay, parse, decoder, convert, m_appsink, nullptr)) {
         qCWarning(lcCamera) << "Failed to link decode chain for" << m_rtspUrl;
-        setState(CameraState::Lost);
+        handleStreamFailure();
         return;
     }
 
@@ -244,4 +263,5 @@ int RtspStreamPipeline::newSampleCallback(GstElement *sink, void *userData)
 void RtspStreamPipeline::handleFirstSample()
 {
     setState(CameraState::Live);
+    m_reconnectScheduler.onConnectSucceeded();
 }
