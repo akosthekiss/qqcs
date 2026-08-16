@@ -52,6 +52,8 @@ qt_add_qml_module(qqcs
     VERSION 1.0
     QML_FILES
         qml/Main.qml
+        qml/Mosaic.qml
+        qml/CameraTile.qml
 )
 
 target_link_libraries(qqcs PRIVATE

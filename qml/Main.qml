@@ -11,10 +11,8 @@ Window {
         anchors.fill: parent
         color: "black"
 
-        Item {
-            id: videoSlot
+        Mosaic {
             anchors.fill: parent
-            Component.onCompleted: cameraManager.attachMosaicVideo(cameraManager.firstCameraId(), videoSlot)
         }
     }
 }

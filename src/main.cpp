@@ -43,6 +43,7 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("configModel"), &configModel);
     engine.rootContext()->setContextProperty(QStringLiteral("cameraManager"), &cameraManager);
+    engine.rootContext()->setContextProperty(QStringLiteral("cameraListModel"), cameraManager.listModel());
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed,
         &app, [] { QCoreApplication::exit(-1); },

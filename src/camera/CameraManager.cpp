@@ -72,12 +72,18 @@ AppSinkVideoItem *CameraManager::fullscreenVideoItem() const
 
 void CameraManager::attachMosaicVideo(const QString &id, QQuickItem *container)
 {
-    attachVideoItem(mosaicVideoItem(id), container);
+    AppSinkVideoItem *item = mosaicVideoItem(id);
+    if (item)
+        item->setFillMode(AppSinkVideoItem::FillMode::Cover); // SPEC §9: mosaic is COVER
+    attachVideoItem(item, container);
 }
 
 void CameraManager::attachFullscreenVideo(QQuickItem *container)
 {
-    attachVideoItem(fullscreenVideoItem(), container);
+    AppSinkVideoItem *item = fullscreenVideoItem();
+    if (item)
+        item->setFillMode(AppSinkVideoItem::FillMode::Contain); // SPEC §11: fullscreen 1.0x is CONTAIN
+    attachVideoItem(item, container);
 }
 
 void CameraManager::focus(const QString &id)

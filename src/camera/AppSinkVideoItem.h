@@ -16,11 +16,20 @@ class AppSinkVideoItem : public QQuickItem
     Q_OBJECT
 
 public:
+    // SPEC §9/§34: video must never be distorted. Cover crops (mosaic);
+    // Contain letterboxes (fullscreen at 1.0x). Zoom/pan (fullscreen >1.0x,
+    // SPEC §14/§18) is applied on top of Cover by NavigationController via
+    // an outer QML transform, not by this item.
+    enum class FillMode { Cover, Contain };
+
     explicit AppSinkVideoItem(QQuickItem *parent = nullptr);
     ~AppSinkVideoItem() override;
 
     int nativeWidth() const { return m_nativeWidth; }
     int nativeHeight() const { return m_nativeHeight; }
+
+    FillMode fillMode() const { return m_fillMode; }
+    void setFillMode(FillMode mode);
 
     // Called from a GStreamer streaming thread. Takes ownership of sample
     // (unrefs it before returning) and must never touch Qt/QML objects
@@ -39,4 +48,5 @@ private:
     bool m_hasPendingFrame = false;
     int m_nativeWidth = 0;
     int m_nativeHeight = 0;
+    FillMode m_fillMode = FillMode::Cover;
 };

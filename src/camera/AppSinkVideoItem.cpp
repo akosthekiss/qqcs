@@ -13,6 +13,14 @@ AppSinkVideoItem::AppSinkVideoItem(QQuickItem *parent) : QQuickItem(parent)
 
 AppSinkVideoItem::~AppSinkVideoItem() = default;
 
+void AppSinkVideoItem::setFillMode(FillMode mode)
+{
+    if (m_fillMode == mode)
+        return;
+    m_fillMode = mode;
+    update();
+}
+
 void AppSinkVideoItem::pushSample(GstSample *sample)
 {
     GstBuffer *buffer = gst_sample_get_buffer(sample);
@@ -69,20 +77,60 @@ QSGNode *AppSinkVideoItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData
         if (m_hasPendingFrame) {
             frame = m_pendingFrame;
             hasFrame = true;
+            m_hasPendingFrame = false;
         }
     }
 
     auto *node = static_cast<QSGSimpleTextureNode *>(oldNode);
-    if (!hasFrame)
-        return node;
-
     if (!node) {
+        if (!hasFrame)
+            return nullptr;
         node = new QSGSimpleTextureNode();
         node->setOwnsTexture(true);
         node->setFiltering(QSGTexture::Linear);
     }
 
-    node->setTexture(window()->createTextureFromImage(frame));
-    node->setRect(boundingRect());
+    if (hasFrame)
+        node->setTexture(window()->createTextureFromImage(frame));
+
+    const QSGTexture *texture = node->texture();
+    const QSizeF texSize = texture ? texture->textureSize() : QSizeF();
+    const qreal itemW = width();
+    const qreal itemH = height();
+    if (texSize.width() <= 0 || texSize.height() <= 0 || itemW <= 0 || itemH <= 0) {
+        node->setSourceRect(QRectF(QPointF(0, 0), texSize));
+        node->setRect(boundingRect());
+        return node;
+    }
+
+    const qreal videoAspect = texSize.width() / texSize.height();
+    const qreal itemAspect = itemW / itemH;
+
+    if (m_fillMode == FillMode::Cover) {
+        QRectF src(QPointF(0, 0), texSize);
+        if (videoAspect > itemAspect) {
+            const qreal wantedWidth = texSize.height() * itemAspect;
+            src.setX((texSize.width() - wantedWidth) / 2.0);
+            src.setWidth(wantedWidth);
+        } else if (videoAspect < itemAspect) {
+            const qreal wantedHeight = texSize.width() / itemAspect;
+            src.setY((texSize.height() - wantedHeight) / 2.0);
+            src.setHeight(wantedHeight);
+        }
+        node->setSourceRect(src);
+        node->setRect(boundingRect());
+    } else {
+        node->setSourceRect(QRectF(QPointF(0, 0), texSize));
+        QRectF dest;
+        if (itemAspect > videoAspect) {
+            const qreal destWidth = itemH * videoAspect;
+            dest = QRectF((itemW - destWidth) / 2.0, 0, destWidth, itemH);
+        } else {
+            const qreal destHeight = itemW / videoAspect;
+            dest = QRectF(0, (itemH - destHeight) / 2.0, itemW, destHeight);
+        }
+        node->setRect(dest);
+    }
+
     return node;
 }

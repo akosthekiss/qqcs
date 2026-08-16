@@ -53,7 +53,7 @@ QVariant CameraListModel::data(const QModelIndex &index, int role) const
 QHash<int, QByteArray> CameraListModel::roleNames() const
 {
     return {
-        { IdRole, "id" },
+        { IdRole, "cameraId" },
         { NameRole, "name" },
         { ShortcutRole, "shortcut" },
         { StateRole, "state" },

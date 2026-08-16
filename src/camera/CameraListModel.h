@@ -14,6 +14,8 @@ class CameraListModel : public QAbstractListModel
     Q_OBJECT
 
 public:
+    // Role string is "cameraId", not "id" -- QML's `id:` is a reserved
+    // keyword and clashes with a delegate `required property string id`.
     enum Roles {
         IdRole = Qt::UserRole + 1,
         NameRole,
