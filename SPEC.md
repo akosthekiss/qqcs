@@ -1,91 +1,93 @@
 # QQCS
 
-## 1. Projekt célja
+## 1. Project Purpose
 
-Készíts egy natív, elsősorban Raspberry Pi-re szánt biztonságikamera-monitor alkalmazást, amely több RTSP videostreamet képes megjeleníteni HDMI-n csatlakoztatott TV-n, és a TV távirányítójával HDMI-CEC-en keresztül vezérelhető.
+Build a native, primarily Raspberry Pi-targeted security camera monitoring application capable of displaying multiple RTSP video streams on a TV connected via HDMI, controllable via the TV's remote control over HDMI-CEC.
 
-Az alkalmazás ugyanazon core kódbázissal fusson desktop Linuxon és macOS-en is.
+The application must run from the same core codebase on desktop Linux and macOS as well.
 
-Desktopon:
+On desktop:
 
-* billentyűzettel;
-* egérrel
+* keyboard;
+* mouse
 
-legyen vezérelhető.
+must be usable for control.
 
-Raspberry Pi-n:
+On Raspberry Pi:
 
-* HDMI-n jelenjen meg a GUI;
-* HDMI-CEC-en keresztül kezelje a TV távirányítóját;
-* automatikusan induljon el.
-
----
-
-## 2. Fő funkciók
-
-Az alkalmazás:
-
-* több RTSP kamera egyidejű megjelenítésére képes;
-* mozaik/grid nézetet biztosít;
-* fókuszálható kamerát kezel;
-* kiválasztott kamerát fullscreenben jelenít meg;
-* fullscreenben automatikusan lejátssza az audio streamet, ha van;
-* fullscreenben előző/következő kamerára lehet váltani;
-* digitális zoomot biztosít;
-* zoomolt képen pan funkciót biztosít;
-* kamera nevet és LIVE/LOST állapotot jelenít meg;
-* az állandó status overlayen jelzi az audio jelenlétét;
-* elveszett stream esetén megjeleníti a következő reconnectig hátralévő időt;
-* opcionális diagnosztikai overlayt biztosít;
-* `0–9` gyorskameraválasztást biztosít;
-* HDMI-CEC távirányítóval vezérelhető Raspberry Pi-n;
-* billentyűzettel és egérrel vezérelhető desktopon;
-* Raspberry Pi-n automatikusan indul.
+* the GUI must appear over HDMI;
+* it must handle the TV's remote control via HDMI-CEC;
+* it must start automatically.
 
 ---
 
-# 3. Technológiai követelmények
+## 2. Main Features
 
-Preferált technológia:
+The application:
 
-| Terület      | Technológia           |
-| ------------ | --------------------- |
-| Fő nyelv     | C++17 vagy C++20      |
-| GUI          | Qt 6 / Qt Quick / QML |
-| Build        | CMake                 |
-| Video/RTSP   | GStreamer             |
-| HDMI-CEC     | libCEC                |
-| Konfiguráció | YAML                  |
-
-A fő alkalmazás C++ legyen.
-
-Python csak segédscriptekhez használható.
-
-Ne használj Electron/webview-alapú GUI-t.
+* is capable of displaying multiple RTSP cameras simultaneously;
+* provides a mosaic/grid view;
+* handles a focusable camera;
+* displays the selected camera in fullscreen;
+* automatically plays the audio stream in fullscreen, if present;
+* allows switching to the previous/next camera in fullscreen;
+* provides digital zoom;
+* provides pan functionality on the zoomed image;
+* displays the camera name and LIVE/LOST status;
+* gives a text-based indication of audio presence in fullscreen view (not in mosaic, since there is no audio playback there);
+* displays the time remaining until the next reconnect for a lost stream;
+* provides an optional diagnostics overlay;
+* provides `0–9` quick camera selection;
+* is controllable via HDMI-CEC remote on Raspberry Pi;
+* is controllable via keyboard and mouse on desktop;
+* starts automatically on Raspberry Pi.
 
 ---
 
-# 4. Platformok
+# 3. Technology Requirements
 
-Elsődleges:
+Preferred technology:
+
+| Area          | Technology             |
+| ------------- | ----------------------- |
+| Main language | C++17 or C++20          |
+| GUI           | Qt 6 / Qt Quick / QML   |
+| Build         | CMake                   |
+| Video/RTSP    | GStreamer               |
+| HDMI-CEC      | libCEC                  |
+| Configuration | YAML                    |
+
+The main application must be C++.
+
+Python may only be used for auxiliary scripts.
+
+Do not use an Electron/webview-based GUI.
+
+---
+
+# 4. Platforms
+
+Primary:
 
 * Raspberry Pi 5;
 * Raspberry Pi OS 64-bit;
 * HDMI TV;
 * HDMI-CEC.
 
-Másodlagos:
+Secondary:
 
 * Linux desktop;
 * macOS.
 
-Desktopon a CEC és Raspberry Pi-specifikus autostart nem követelmény.
+On desktop, CEC and Raspberry Pi-specific autostart are not requirements.
+
+On startup, the desktop window should be maximized (filling the available screen space), but not in OS-level fullscreen mode — the title bar, application name, and window control buttons should remain visible.
 
 ---
 
-# 5. Architektúra
+# 5. Architecture
 
-Javasolt rétegek:
+Suggested layers:
 
 ```text
 Input
@@ -111,7 +113,7 @@ Mosaic          Fullscreen
        RTSP cameras
 ```
 
-Inputforrások:
+Input sources:
 
 ```text
 CEC
@@ -125,15 +127,15 @@ InputAction
 NavigationController
 ```
 
-A GUI ne kezelje közvetlenül a CEC-et vagy a GStreamer pipeline-okat.
+The GUI must not handle CEC or the GStreamer pipelines directly.
 
 ---
 
-# 6. Konfiguráció
+# 6. Configuration
 
-A konfiguráció formátuma **YAML**.
+The configuration format is **YAML**.
 
-Példa:
+Example:
 
 ```yaml
 layout:
@@ -147,92 +149,92 @@ overlay:
 
 cameras:
   - id: front
-    name: "Bejárat"
+    name: "Front Door"
     shortcut: 1
     mainUrl: "rtsp://192.168.1.101:554/main"
     subUrl: "rtsp://192.168.1.101:554/sub"
 
   - id: garden
-    name: "Kert"
+    name: "Garden"
     shortcut: 2
     mainUrl: "rtsp://192.168.1.102:554/main"
     subUrl: "rtsp://192.168.1.102:554/sub"
 ```
 
-A konfigurációban **nincs audio enable/disable mező**.
+There is **no audio enable/disable field** in the configuration.
 
-Fullscreenben az audio automatikus.
+Audio is automatic in fullscreen.
 
 ---
 
-## 6.1 Kamera mezők
+## 6.1 Camera Fields
 
 ### `id`
 
-Kötelező, egyedi azonosító.
+Required, unique identifier.
 
 ### `name`
 
-Opcionális, ember által olvasható név.
+Optional, human-readable name.
 
-Ha nincs megadva, név-overlay ne jelenjen meg.
+If not provided, no name overlay should be shown.
 
 ### `shortcut`
 
-Opcionális egész szám `0–9` között.
+Optional integer between `0`–`9`.
 
-A kamera gyorsválasztására szolgál.
+Used for quick camera selection.
 
-A shortcutok legyenek egyediek.
+Shortcuts must be unique.
 
 ### `mainUrl`
 
-Kötelező RTSP stream URL.
+Required RTSP stream URL.
 
-Elsősorban fullscreenhez használatos.
+Primarily used for fullscreen.
 
 ### `subUrl`
 
-Opcionális RTSP substream.
+Optional RTSP substream.
 
-Ha létezik, mozaik nézetben ezt kell preferálni.
-
----
-
-# 7. Konfiguráció validáció
-
-Induláskor ellenőrizni kell:
-
-* YAML szintaxis;
-* kötelező mezők;
-* kamera-ID-k egyedisége;
-* shortcutok egyedisége;
-* shortcut értéke `0–9`;
-* layout értékek;
-* overlay pozíció.
-
-Hibás konfiguráció esetén:
-
-* egyértelmű hiba kerüljön a logba;
-* ne legyen silent failure;
-* lehetőség szerint a GUI is mutasson használható hibaállapotot.
+If it exists, it should be preferred in mosaic view.
 
 ---
 
-# 8. Mozaik nézet
+# 7. Configuration Validation
 
-Induláskor az alapértelmezett nézet a mozaik/grid.
+On startup, the following must be checked:
 
-A layout az oszlopok számát konfigurálja:
+* YAML syntax;
+* required fields;
+* uniqueness of camera IDs;
+* uniqueness of shortcuts;
+* shortcut value `0–9`;
+* layout values;
+* overlay position.
+
+In case of invalid configuration:
+
+* a clear error must be logged;
+* there must be no silent failure;
+* where possible, the GUI should also show a usable error state.
+
+---
+
+# 8. Mosaic View
+
+On startup, the default view is the mosaic/grid.
+
+The layout configures the number of columns:
 
 ```yaml
 layout:
   columns: 4
 ```
 
-A sorok számát automatikusan kell meghatározni.
+The number of rows must be determined automatically.
 
-Például 10 kamera és 4 oszlop:
+For example, 10 cameras and 4 columns:
 
 ```text
 ┌──────────┬──────────┬──────────┬──────────┐
@@ -244,46 +246,46 @@ Például 10 kamera és 4 oszlop:
 └──────────┴──────────┴──────────┴──────────┘
 ```
 
-A nem létező cellák nem fókuszálhatók.
+Non-existent cells cannot be focused.
 
 ---
 
-# 9. Mozaik képarány-kezelés
+# 9. Mosaic Aspect Ratio Handling
 
-A videó képe **soha nem torzítható**.
+The video image must **never be distorted**.
 
-Mozaikban a renderelési mód:
+The rendering mode in mosaic:
 
 ```text
 COVER
 ```
 
-Ez azt jelenti:
+This means:
 
-* az eredeti képarány megmarad;
-* a csempe teljes területe ki van töltve;
-* szükség esetén a kép cropolva van;
-* nincs fekete sáv;
-* nincs stretch/distortion.
+* the original aspect ratio is preserved;
+* the tile's full area is filled;
+* the image is cropped if necessary;
+* no black bars;
+* no stretch/distortion.
 
-A crop alapértelmezés szerint középre igazított legyen.
+The crop should be centered by default.
 
 ---
 
-# 10. Mozaik navigáció
+# 10. Mosaic Navigation
 
-A fókuszált csempét jól látható vizuális keret jelölje.
+The focused tile must be marked with a clearly visible frame.
 
 ```text
-Up   : fenti sor
-Down : alsó sor
-Left : előző kamera
-Right: következő kamera
+Up   : row above
+Down : row below
+Left : previous camera
+Right: next camera
 ```
 
-A `Left` és `Right` **nem soron belüli ciklikus navigáció**.
+`Left` and `Right` are **not cyclic navigation within a row**.
 
-A kamera logikai sorrendje a YAML konfiguráció sorrendje:
+The camera's logical order is the order in the YAML configuration:
 
 ```text
 1  2  3  4
@@ -291,7 +293,7 @@ A kamera logikai sorrendje a YAML konfiguráció sorrendje:
 9 10 11 12
 ```
 
-Ezért:
+Therefore:
 
 ```text
 4 → Right → 5
@@ -301,30 +303,30 @@ Ezért:
 9 → Left  → 8
 ```
 
-Az első kamera `Left` esetén az utolsó kamerára, az utolsó `Right` esetén az első kamerára ugrik.
+On the first camera, `Left` jumps to the last camera; on the last camera, `Right` jumps to the first.
 
-Az `Up` és `Down` lehetőség szerint ugyanabban az oszlopban mozogjon.
+`Up` and `Down` should move within the same column where possible.
 
-Hiányzó cellára nem lehet fókuszt helyezni; ilyenkor a legközelebbi létező kamera legyen kiválasztva.
+A missing cell cannot be focused; in that case, the focus stays at the bottom of the current column, and does not jump to a different column, even if a camera exists there.
 
 ---
 
 # 11. Fullscreen
 
-A fókuszált kamera fullscreen nézetbe választható:
+The focused camera can be selected into fullscreen view:
 
 ```text
 CEC OK
 Enter
-bal egérgomb
+left mouse button
 ```
 
-Fullscreenben:
+In fullscreen:
 
-* a teljes rendelkezésre álló képernyőt használja;
-* a video képaránya változatlan;
-* `zoom = 1.0×` esetén a teljes videókép látható;
-* szükség esetén fekete letterbox/pillarbox sáv megengedett.
+* it uses the entire available screen;
+* the video's aspect ratio is unchanged;
+* at `zoom = 1.0×`, the entire video image is visible;
+* black letterbox/pillarbox bars are allowed where necessary.
 
 Fullscreen 1.0×:
 
@@ -332,53 +334,53 @@ Fullscreen 1.0×:
 CONTAIN
 ```
 
-Tehát nem kell a video teljes képernyőt kitöltse, ha ez torzítást vagy cropot igényelne.
+That is, the video does not need to fill the entire screen if that would require distortion or cropping.
 
 ---
 
-# 12. Fullscreen kamera-váltás
+# 12. Fullscreen Camera Switching
 
-Fullscreenben `zoom = 1.0×` esetén:
+In fullscreen, at `zoom = 1.0×`:
 
 ```text
-Left : előző kamera
-Right: következő kamera
+Left : previous camera
+Right: next camera
 ```
 
-A sorrend a YAML konfiguráció sorrendje.
+The order is the order in the YAML configuration.
 
-A lista ciklikus:
+The list is cyclic:
 
 ```text
-első Left → utolsó
-utolsó Right → első
+first, Left → last
+last, Right → first
 ```
 
 ---
 
-# 13. Fullscreen audio
+# 13. Fullscreen Audio
 
-Fullscreenben az aktuális kamera audio streamje automatikusan lejátszandó, amennyiben:
+In fullscreen, the current camera's audio stream must be played automatically, provided that:
 
-* az RTSP stream tartalmaz támogatott audio streamet;
-* az audio dekódolható és lejátszható.
+* the RTSP stream contains a supported audio stream;
+* the audio is decodable and playable.
 
-Nincs `audio: true/false` konfiguráció.
+There is no `audio: true/false` configuration.
 
-Ha nincs audio, a video ettől még működjön.
+If there is no audio, the video should still work.
 
-Kameraváltáskor:
+On camera switch:
 
-1. az előző audio stream álljon le;
-2. az új kamera audio streamje induljon, ha elérhető.
+1. the previous audio stream should stop;
+2. the new camera's audio stream should start, if available.
 
-Audiohiba nem állíthatja le a videót.
+An audio failure must not stop the video.
 
 ---
 
 # 14. Zoom
 
-Támogatott zoomlépések például:
+Supported zoom steps, for example:
 
 ```text
 1.0×
@@ -388,54 +390,54 @@ Támogatott zoomlépések például:
 4.0×
 ```
 
-A maximális zoom legyen könnyen módosítható.
+The maximum zoom should be easily adjustable.
 
-A zoom nem torzíthatja a képet.
+Zoom must not distort the image.
 
-Fullscreenben `zoom > 1.0×` esetén:
+In fullscreen, at `zoom > 1.0×`:
 
-* a nagyított video töltse ki a viewportot;
-* fekete sáv ne legyen szükséges;
-* a képernyőn kívüli részek panolhatók;
-* a teljes videókép láthatósága már nem követelmény.
+* the enlarged video should fill the viewport;
+* black bars should not be necessary;
+* off-screen parts should be panable;
+* full visibility of the video image is no longer a requirement.
 
 ---
 
-# 15. CEC zoom
+# 15. CEC Zoom
 
 ```text
-PIROS : Zoom+
-ZÖLD  : Zoom−
-KÉK   : Diagnosztika ki/be
-SÁRGA : reserved
+RED    : Zoom+
+GREEN  : Zoom−
+BLUE   : Diagnostics on/off
+YELLOW : reserved
 ```
 
-A zoom origin CEC esetén a kép közepe.
+For CEC, the zoom origin is the center of the image.
 
-A Zoom− ismételt megnyomásával vissza lehessen térni `1.0×` állapotba.
+Repeatedly pressing Zoom− should allow returning to the `1.0×` state.
 
 ---
 
-# 16. Desktop zoom
+# 16. Desktop Zoom
 
-Desktopon:
+On desktop:
 
 ```text
-egérgörgő fel : Zoom+
-egérgörgő le  : Zoom−
+mouse wheel up   : Zoom+
+mouse wheel down : Zoom−
 ```
 
-A zoom középpontja az egérkurzor aktuális pozíciója.
+The zoom center is the current position of the mouse cursor.
 
-Az egér alatt lévő video-képpont maradjon lehetőleg ugyanazon képernyőpozícióban zoomolás közben.
+The video pixel under the mouse should, as much as possible, remain in the same screen position while zooming.
 
-Ez legyen intuitív „zoom to cursor” működés.
+This should be an intuitive "zoom to cursor" behavior.
 
 ---
 
-# 17. Zoom reset
+# 17. Zoom Reset
 
-Desktopon:
+On desktop:
 
 ```text
 Escape : Zoom reset
@@ -448,25 +450,25 @@ zoom = 1.0×
 pan = (0, 0)
 ```
 
-Ha `zoom > 1.0×`, az Escape zoom resetet végez.
+If `zoom > 1.0×`, Escape performs a zoom reset.
 
-Ha már `zoom = 1.0×`, fullscreenben az Escape visszalép a fullscreenből.
+If `zoom` is already `1.0×`, in fullscreen Escape exits fullscreen.
 
-A `0` **soha nem zoom reset**.
+`0` is **never** a zoom reset.
 
 ---
 
-# 18. Zoom és iránygombok
+# 18. Zoom and Direction Keys
 
-Ez kötelező állapotfüggő viselkedés.
+This is mandatory state-dependent behavior.
 
 ### `zoom == 1.0×`
 
 Fullscreen:
 
 ```text
-Left : előző kamera
-Right: következő kamera
+Left : previous camera
+Right: next camera
 ```
 
 ### `zoom > 1.0×`
@@ -474,133 +476,140 @@ Right: következő kamera
 Fullscreen:
 
 ```text
-Up   : pan fel
-Down : pan le
-Left : pan balra
-Right: pan jobbra
+Up   : pan up
+Down : pan down
+Left : pan left
+Right: pan right
 ```
 
-Ha a zoom visszaáll `1.0×` értékre:
+If zoom returns to `1.0×`:
 
 ```text
 zoom = 1.0×
 pan = (0, 0)
 ```
 
-Ezután Left/Right ismét kamerát vált.
+After that, Left/Right switch cameras again.
 
 ---
 
-# 19. Desktop pan
+# 19. Desktop Pan
 
-Fullscreenben `zoom > 1.0×` esetén:
+In fullscreen, at `zoom > 1.0×`:
 
 ```text
-bal egérgomb + húzás : pan
+left mouse button + drag : pan
 ```
 
-A pan legyen korlátozva úgy, hogy ne lehessen a video érvényes tartományán kívülre navigálni.
+Panning should be constrained so that it is not possible to navigate outside the video's valid range.
 
 ---
 
-# 20. Állandó status overlay
+# 20. Always-On Status Overlay
 
-Az állandó status overlay megjelenhet:
+The always-on status overlay may appear:
 
-* mozaik nézetben;
-* fullscreen nézetben.
+* in mosaic view;
+* in fullscreen view.
 
-Tartalma:
+Content (in both mosaic and fullscreen):
 
-1. kamera neve, ha van;
-2. LIVE/LOST állapot;
-3. audio jelenléte;
-4. LOST esetén a következő reconnectig hátralévő idő.
+1. camera name, if present;
+2. LIVE/LOST status;
+3. while LOST, the time remaining until the next reconnect.
 
-Példák:
+In fullscreen view (including zoomed), additionally:
+
+4. a text-based indication of audio presence (e.g. "(WITH AUDIO)" / "(NO AUDIO)"). This does not appear in mosaic view.
+
+Examples:
 
 ```text
-● LIVE  🔊  BEJÁRAT
+● LIVE  FRONT DOOR              (mosaic)
 ```
 
 ```text
-● LIVE  🔇  KERT
+● LIVE (WITH AUDIO)  FRONT DOOR  (fullscreen)
 ```
 
 ```text
-● LOST  🔊  BEJÁRAT
+● LIVE (NO AUDIO)  GARDEN        (fullscreen)
+```
+
+```text
+● LOST  FRONT DOOR
 Reconnect: 4s
 ```
 
-A status overlay legyen könnyen olvasható TV-ről is.
+The status overlay should be easy to read from a TV as well.
 
 ---
 
-## 20.1 Audio státusz
+## 20.1 Audio Status
 
-Az audio ikon azt jelenti, hogy az aktuális stream tartalmaz-e támogatott audio streamet.
+The audio indicator is text-based (not an emoji icon), and indicates whether the current stream contains a supported audio stream:
 
 ```text
-🔊 : van támogatott audio stream
-🔇 : nincs támogatott audio stream
+(WITH AUDIO) : supported audio stream present
+(NO AUDIO)   : no supported audio stream
 ```
 
-Ez **nem** a pillanatnyi hangkimeneti állapotot jelenti.
+This indicator only appears in fullscreen (including zoomed fullscreen) view; it does not appear in mosaic view.
 
-Ha van audio stream, de lejátszási hiba történik, ezt a részletes diagnosztikai overlay mutassa.
+This does **not** mean the current audio output state.
+
+If there is an audio stream but a playback error occurs, this should be shown by the detailed diagnostics overlay.
 
 ---
 
-## 20.2 Reconnect countdown
+## 20.2 Reconnect Countdown
 
-`LOST` állapotban az állandó status overlay mutassa:
+In `LOST` state, the always-on status overlay must show:
 
 ```text
 Reconnect: Ns
 ```
 
-Például:
+For example:
 
 ```text
 LOST
 Reconnect: 5s
 ```
 
-majd:
+then:
 
 ```text
 LOST
 Reconnect: 4s
 ```
 
-stb.
+etc.
 
-A countdown:
+The countdown:
 
-* másodpercenként frissüljön;
-* a tényleges reconnect schedulerből származzon;
-* ne külön, független UI-timerből számolódjon.
+* must update every second;
+* must come from the actual reconnect scheduler;
+* must not be computed from a separate, independent UI timer.
 
-A reconnect pillanatában:
+At the moment of reconnecting:
 
 ```text
 LOST
 Reconnect: 0s
 ```
 
-ne legyen szükséges megjeleníteni.
+need not be shown.
 
-Az állapot váltson például:
+The state should instead switch to, for example:
 
 ```text
 CONNECTING
 ```
 
-állapotra.
-
 ---
 
-# 21. Kameraállapot
+# 21. Camera State
 
 Minimum:
 
@@ -613,96 +622,97 @@ enum class CameraState {
 };
 ```
 
-Jelentés:
+Meaning:
 
-* `Disconnected`: nincs aktív kapcsolat;
-* `Connecting`: kapcsolódási kísérlet folyik;
-* `Live`: ténylegesen érkező és dekódolható video;
-* `Lost`: korábban működő stream elveszett, reconnectre vár.
+* `Disconnected`: no active connection;
+* `Connecting`: a connection attempt is in progress;
+* `Live`: video is actually arriving and decodable;
+* `Lost`: a previously working stream has been lost, awaiting reconnect.
 
 ---
 
-# 22. Diagnosztika
+# 22. Diagnostics
 
-A kék CEC gomb kapcsolja a diagnosztikai overlayt.
+The Blue CEC button toggles the diagnostics overlay.
 
-Desktopon:
+On desktop:
 
 ```text
-I : diagnosztika ki/be
+I : diagnostics on/off
 ```
 
-Lehetséges információk:
+Possible information:
 
-* kamera neve;
-* kameraállapot;
-* audio jelenléte;
+* camera name;
+* camera state;
+* audio presence;
 * video codec;
-* felbontás;
+* resolution;
 * FPS;
 * bitrate;
 * audio codec;
 * RTSP transport;
-* latency, ha megbízhatóan mérhető;
 * dropped frames;
 * reconnect count;
 * reconnect backoff;
-* következő reconnectig hátralévő idő;
+* time remaining until the next reconnect;
 * RTSP URL.
 
-Ha nem érhető el:
+If unavailable:
 
 ```text
 N/A
 ```
 
-A diagnosztika overlay, nem külön ablak.
+Latency is intentionally not included in the diagnostics overlay: measuring true glass-to-glass latency would require RTCP-based NTP correlation, which is not reliable for most IP cameras. Rather than always showing `N/A` for this field, it is omitted from the overlay entirely, and this decision only needs to be documented (e.g. in the README).
 
-A reconnect countdown **nem kizárólag diagnosztikai információ**: LOST állapotban az állandó status overlayen is kötelező.
+The diagnostics overlay is an overlay, not a separate window.
+
+The reconnect countdown is **not exclusively diagnostic information**: in the LOST state, it is also mandatory on the always-on status overlay.
 
 ---
 
-# 23. Gyorskameraválasztás
+# 23. Quick Camera Selection
 
-A `0–9` gombok közvetlen kamera-választásra használhatók.
+The `0–9` buttons can be used for direct camera selection.
 
-Működjön:
+Must work:
 
-* CEC távirányítón;
-* desktop billentyűzeten;
-* mozaikban;
-* fullscreenben;
-* zoomolt fullscreenben.
+* on the CEC remote;
+* on the desktop keyboard;
+* in mosaic view;
+* in fullscreen view;
+* in zoomed fullscreen view.
 
-Például:
+For example:
 
 ```yaml
 shortcut: 5
 ```
 
-esetén:
+results in:
 
 ```text
 5 → Camera 5
 ```
 
-Ajánlott:
+Recommended:
 
 ```text
-Mozaik + 5      → Camera 5 fullscreen
+Mosaic + 5      → Camera 5 fullscreen
 Fullscreen + 5  → Camera 5 fullscreen
 Zoom + 5        → Camera 5 fullscreen
 ```
 
-Ha nem definiált shortcutot nyomnak meg, ne történjen semmi.
+If an undefined shortcut is pressed, nothing should happen.
 
-A `0` mindig kamera shortcut.
+`0` is always a camera shortcut.
 
 ---
 
-# 24. Input absztrakció
+# 24. Input Abstraction
 
-Javasolt:
+Suggested:
 
 ```cpp
 enum class InputAction {
@@ -733,11 +743,11 @@ enum class InputAction {
 };
 ```
 
-A NavigationController dönti el az action jelentését az aktuális állapot alapján.
+The NavigationController decides the meaning of the action based on the current state.
 
 ---
 
-# 25. CEC input mapping
+# 25. CEC Input Mapping
 
 ```text
 Up       : Up
@@ -756,11 +766,11 @@ Blue     : ToggleDiagnostics
 Yellow   : reserved
 ```
 
-A CEC hiánya nem okozhat alkalmazásleállást.
+The absence of CEC must not cause the application to fail to run.
 
 ---
 
-# 26. Desktop keyboard input mapping
+# 26. Desktop Keyboard Input Mapping
 
 ```text
 Arrow keys : Up / Down / Left / Right
@@ -776,26 +786,26 @@ I          : ToggleDiagnostics
 
 Escape:
 
-* `zoom > 1.0×` esetén zoom reset;
-* `zoom == 1.0×` esetén fullscreenből visszalépés.
+* at `zoom > 1.0×`, zoom reset;
+* at `zoom == 1.0×`, exit from fullscreen.
 
 ---
 
-# 27. Desktop mouse
+# 27. Desktop Mouse
 
 ```text
-bal kattintás    : Select
-egérgörgő        : ZoomIn / ZoomOut
-bal gomb + húzás : Pan, ha zoom > 1.0×
+left click         : Select
+mouse wheel        : ZoomIn / ZoomOut
+left button + drag : Pan, if zoom > 1.0×
 ```
 
 ---
 
 # 28. CEC
 
-Raspberry Pi-n libCEC használata szükséges.
+On Raspberry Pi, libCEC must be used.
 
-Támogatott:
+Supported:
 
 * Up;
 * Down;
@@ -812,47 +822,45 @@ Yellow reserved.
 
 ---
 
-# 29. Raspberry Pi autostart
+# 29. Raspberry Pi Autostart
 
-Raspberry Pi-n az alkalmazás automatikusan induljon.
+On Raspberry Pi, the application must start automatically.
 
-Preferált:
+Preferred:
 
 **systemd service**
 
-Elvárások:
+Requirements:
 
-* grafikus környezet után induljon;
-* crash után restartoljon;
-* logolható legyen;
-* ne `.bashrc`-ból induljon.
+* start after the graphical environment;
+* restart after a crash;
+* must be loggable;
+* must not start from `.bashrc`.
 
 ---
 
-# 30. Teljesítmény
+# 30. Performance
 
-Raspberry Pi 5 az elsődleges cél.
+Raspberry Pi 5 is the primary target.
 
-Preferált:
+Preferred:
 
 * hardware decoding;
 * GPU rendering;
-* minimális CPU frame-copy;
-* substream mozaikban;
-* main stream fullscreenben;
-* nem blokkoló GUI thread.
+* minimal CPU frame-copy;
+* substream in mosaic;
+* main stream in fullscreen;
+* non-blocking GUI thread.
 
-Legalább:
+Examine at least:
 
 ```text
-4 kamera
-9 kamera
-16 kamera
+4 cameras
+9 cameras
+16 cameras
 ```
 
-esetén vizsgáld.
-
-Mérendő:
+Measure:
 
 * CPU;
 * GPU;
@@ -860,55 +868,55 @@ Mérendő:
 * FPS;
 * dropped frames;
 * latency;
-* hőmérséklet.
+* temperature.
 
-Ne legyen előre önkényesen meghatározott maximális kameradarabszám.
+There should be no arbitrarily predetermined maximum camera count.
 
 ---
 
 # 31. RTSP / GStreamer
 
-GStreamer használata kötelező.
+Using GStreamer is mandatory.
 
-Támogatás:
+Support:
 
 * RTSP;
 * H.264;
-* lehetőség szerint H.265;
+* H.265 where possible;
 * audio;
-* hardware decoding, ahol elérhető;
+* hardware decoding, where available;
 * reconnect;
 * stream state;
-* dropped-frame mérés, ahol hozzáférhető.
+* dropped-frame measurement, where accessible.
 
-A GStreamer pipeline-ok ne blokkolják a GUI threadet.
+The GStreamer pipelines must not block the GUI thread.
 
 ---
 
-# 32. Main/sub stream
+# 32. Main/Sub Stream
 
-Ha van:
+If there is a:
 
 ```yaml
 subUrl: ...
 ```
 
-akkor:
+then:
 
 ```text
-Mozaik    → subUrl
+Mosaic     → subUrl
 Fullscreen → mainUrl
 ```
 
-Ha nincs `subUrl`, mindkettő használhatja a `mainUrl`-t.
+If there is no `subUrl`, both may use `mainUrl`.
 
-Fullscreen audio szintén a fullscreen `mainUrl` streamből kezelendő.
+Fullscreen audio should likewise be handled from the fullscreen `mainUrl` stream.
 
 ---
 
 # 33. Reconnect
 
-Javasolt backoff:
+Suggested backoff:
 
 ```text
 1s
@@ -918,35 +926,35 @@ Javasolt backoff:
 30s
 ```
 
-Ezután 30 másodpercenként újrapróbálkozás.
+After that, retry every 30 seconds.
 
-Siker után a backoff resetelődik.
+After a success, the backoff resets.
 
-A scheduler tartsa nyilván:
+The scheduler must keep track of:
 
-* következő reconnect időpontja;
-* hátralévő idő;
-* aktuális backoff;
+* the time of the next reconnect;
+* the remaining time;
+* the current backoff;
 * reconnect count.
 
-A status overlay ugyanebből az állapotból jelenítse meg a countdownot.
+The status overlay must display the countdown from this exact same state.
 
-Egy kamera kiesése nem állíthatja le az alkalmazást.
+The loss of one camera must not stop the application.
 
 ---
 
-# 34. Képarány és rendering
+# 34. Aspect Ratio and Rendering
 
-### Mozaik
+### Mosaic
 
 ```text
 COVER
 ```
 
-* képarány megőrzése;
-* teljes csempe kitöltése;
-* crop megengedett;
-* fekete sáv nem szükséges.
+* aspect ratio preserved;
+* full tile filled;
+* cropping allowed;
+* black bars not necessary.
 
 ### Fullscreen 1.0×
 
@@ -954,9 +962,9 @@ COVER
 CONTAIN
 ```
 
-* teljes video látható;
-* képarány megőrzése;
-* fekete sáv megengedett.
+* full video visible;
+* aspect ratio preserved;
+* black bars allowed.
 
 ### Fullscreen >1.0×
 
@@ -964,115 +972,115 @@ CONTAIN
 ZOOM/COVER
 ```
 
-* képarány megőrzése;
-* teljes viewport kitöltése;
-* panolható;
-* a teljes video már nem feltétlenül látható.
+* aspect ratio preserved;
+* full viewport filled;
+* panable;
+* full video visibility is no longer necessarily required.
 
 ---
 
 # 35. UI/UX
 
-A TV-s UI:
+The TV UI:
 
-* nagy távolságból olvasható;
-* minimális;
-* video-központú;
-* egér nélkül teljesen használható;
-* egyértelmű fókuszt mutat.
+* readable from a large distance;
+* minimal;
+* video-centric;
+* fully usable without a mouse;
+* shows a clear focus.
 
-Az állandó status overlay ne takarja ki jelentősen a videót.
+The always-on status overlay must not significantly obscure the video.
 
-A diagnosztikai overlay csak kérésre legyen látható.
+The diagnostics overlay should only be visible on request.
 
 ---
 
-# 36. Sárga gomb
+# 36. Yellow Button
 
-A Yellow CEC gomb:
+The Yellow CEC button:
 
 ```text
 reserved
 ```
 
-Jelenleg ne legyen funkciója.
+Currently should have no function.
 
-Az architektúra tegye lehetővé későbbi hozzárendelését.
+The architecture should allow for assigning it a function later.
 
 ---
 
-# 37. Első verzióból kimarad
+# 37. Excluded from the First Version
 
-Ne implementáld:
+Do not implement:
 
-* kamera-konfiguráció GUI;
+* camera configuration GUI;
 * PTZ;
-* PTZ preset;
-* kamera-felvétel;
+* PTZ presets;
+* camera recording;
 * playback;
-* mozgásérzékelés;
+* motion detection;
 * AI/object detection;
 * cloud;
-* mobilalkalmazás;
-* webes frontend;
-* távoli adminisztráció;
-* autentikáció.
+* mobile application;
+* web frontend;
+* remote administration;
+* authentication.
 
 ---
 
-# 38. Elfogadási kritériumok
+# 38. Acceptance Criteria
 
-Az első verzió akkor tekinthető funkcionálisan késznek, ha:
+The first version is considered functionally complete if:
 
-1. C++17/C++20 + Qt 6 alatt buildelhető.
-2. YAML konfigurációból több kamera betölthető.
-3. Több RTSP stream egyszerre megjelenik.
-4. Mozaikban fókuszálható kamera van.
-5. Mozaikban a kép nem torzul, szükség esetén cropolva tölti ki a csempét.
-6. OK/bal kattintás fullscreenbe visz.
-7. Fullscreen 1.0× esetén a teljes videókép látható.
-8. Fullscreen 1.0× esetén Left/Right kamerát vált.
-9. Piros CEC gomb Zoom+.
-10. Zöld CEC gomb Zoom−.
-11. Kék CEC gomb diagnosztikát kapcsol.
-12. Zoom >1.0× esetén az iránygombok pan funkciót végeznek.
-13. Zoom 1.0×-re visszaállása után Left/Right ismét kamerát vált.
-14. Desktop egérgörgővel zoomolható.
-15. Desktop zoom az egérkurzor körül történik.
-16. Desktopon nagyított kép panolható.
-17. Kamera neve és LIVE/LOST állapota megjeleníthető.
-18. A status overlay mutatja az audio jelenlétét.
-19. LOST állapotban a status overlay mutatja a reconnect countdownot.
-20. A countdown a tényleges reconnect schedulerből származik.
-21. `0–9` shortcut működik CEC-en és desktopon.
-22. A `0` zoomolt állapotban is kameraválasztás.
-23. Escape fullscreenben zoom resetet tud végezni.
-24. Fullscreen audio automatikusan működik, ha van támogatott audio.
-25. RTSP kiesés után reconnect történik.
-26. Egy kamera kiesése nem állítja le az alkalmazást.
-27. Raspberry Pi-n automatikusan elindul.
-28. Linux desktopon CEC nélkül működik.
-29. macOS-en működik.
-30. README tartalmazza a telepítési és használati dokumentációt.
-31. Mozaik Right/Left navigáció sorokon át, lineáris kamera-sorrendben működik.
-32. Mozaik és fullscreen ugyanazt a kamera-sorrendet használja.
-33. A reconnect countdown másodpercenként helyesen frissül.
-34. A reconnect kísérlet idején a countdown eltűnik, és a kamera CONNECTING állapotba kerül.
-35. Az audio státusz azt jelzi, hogy a stream tartalmaz-e támogatott audio streamet, nem pedig a pillanatnyi hangkimenet állapotát.
-36. A diagnosztikai overlay tartalmazza a rendelkezésre álló technikai streamadatokat.
+1. It builds under C++17/C++20 + Qt 6.
+2. Multiple cameras can be loaded from a YAML configuration.
+3. Multiple RTSP streams are displayed simultaneously.
+4. There is a focusable camera in mosaic view.
+5. The image is not distorted in mosaic view; it fills the tile with cropping if necessary.
+6. OK/left click enters fullscreen.
+7. At fullscreen 1.0×, the entire video image is visible.
+8. At fullscreen 1.0×, Left/Right switches the camera.
+9. The red CEC button is Zoom+.
+10. The green CEC button is Zoom−.
+11. The blue CEC button toggles diagnostics.
+12. At zoom >1.0×, the direction buttons perform panning.
+13. After zoom returns to 1.0×, Left/Right switches the camera again.
+14. Zoomable with the desktop mouse wheel.
+15. Desktop zoom occurs around the mouse cursor.
+16. The enlarged image is panable on desktop.
+17. The camera's name and LIVE/LOST status can be displayed.
+18. In fullscreen view, the status overlay gives a text-based indication of audio presence.
+19. In the LOST state, the status overlay shows the reconnect countdown.
+20. The countdown comes from the actual reconnect scheduler.
+21. The `0–9` shortcuts work on CEC and on desktop.
+22. `0` is still a camera selection even in a zoomed state.
+23. Escape can perform a zoom reset in fullscreen.
+24. Fullscreen audio works automatically when supported audio is present.
+25. After an RTSP dropout, a reconnect occurs.
+26. The loss of one camera does not stop the application.
+27. It starts automatically on Raspberry Pi.
+28. It works on Linux desktop without CEC.
+29. It works on macOS.
+30. The README contains installation and usage documentation.
+31. Mosaic Right/Left navigation works across rows, in linear camera order.
+32. Mosaic and fullscreen use the same camera order.
+33. The reconnect countdown updates correctly every second.
+34. During a reconnect attempt, the countdown disappears and the camera enters the CONNECTING state.
+35. The audio status indicates whether the stream contains a supported audio stream, not the momentary audio output state.
+36. The diagnostics overlay contains the available technical stream data.
 
 ---
 
-# 39. Implementációs elvek
+# 39. Implementation Principles
 
-Az implementáló:
+The implementer must:
 
-* először vizsgálja meg a repositoryt;
-* ne írja át indokolatlanul a működő részeket;
-* új dependency-t csak indokolt esetben vezessen be;
-* izolálja a platformfüggő kódot;
-* különítse el a GUI-t, video pipeline-t, inputot és state managementet;
-* ne tegyen üzleti logikát QML-be;
-* ne tegyen GUI-logikát a CEC adapterbe;
-* ne blokkolja a GUI threadet GStreamer műveletekkel;
-* dokumentálja a fontos technikai döntéseket.
+* first examine the repository;
+* not needlessly rewrite working parts;
+* introduce a new dependency only when justified;
+* isolate platform-dependent code;
+* separate the GUI, video pipeline, input, and state management;
+* not put business logic into QML;
+* not put GUI logic into the CEC adapter;
+* not block the GUI thread with GStreamer operations;
+* document important technical decisions.
