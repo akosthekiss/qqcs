@@ -211,7 +211,6 @@ QVariantMap CameraManager::fullscreenDiagnostics() const
         { QStringLiteral("bitrateBps"), d.bitrateBps },
         { QStringLiteral("audioCodec"), d.audioCodec },
         { QStringLiteral("rtspTransport"), d.rtspTransport },
-        { QStringLiteral("latencyMs"), d.latencyMs },
         { QStringLiteral("droppedFrames"), d.droppedFrames },
         { QStringLiteral("reconnectCount"), d.reconnectCount },
         { QStringLiteral("reconnectBackoffSeconds"), d.reconnectBackoffSeconds },

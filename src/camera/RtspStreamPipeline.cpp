@@ -524,7 +524,6 @@ Diagnostics RtspStreamPipeline::diagnostics() const
     d.bitrateBps = m_currentBitrateBps;
     d.audioCodec = m_audioCodecName;
     d.rtspTransport = QStringLiteral("TCP"); // configured value (SPEC §31); not queried from rtspsrc internals
-    d.latencyMs = -1; // N/A -- see Diagnostics.h
     d.droppedFrames = qMax<qint64>(0, m_appsinkBufferCount.loadRelaxed() - m_pulledSampleCount.loadRelaxed());
     d.reconnectCount = reconnectCount();
     d.reconnectBackoffSeconds = reconnectBackoffSeconds();

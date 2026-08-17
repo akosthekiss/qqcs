@@ -175,10 +175,14 @@ Toggle with `I` (keyboard) or the Blue CEC button. Shows, for the current
 fullscreen camera: video codec, resolution, FPS, bitrate, audio codec,
 RTSP transport, dropped frames, reconnect count/backoff/countdown, and
 the RTSP URL (with any embedded username/password masked, since this
-overlay can end up on a TV screen). Latency is always shown as `N/A` —
-true glass-to-glass latency needs RTCP-based NTP correlation that isn't
-reliable across consumer IP cameras, so this was deliberately not
-implemented as a fragile estimate.
+overlay can end up on a TV screen).
+
+Latency is intentionally **not** one of the displayed fields: true
+glass-to-glass latency needs RTCP-based NTP correlation that isn't
+reliable across consumer IP cameras, and the spec explicitly allows
+omitting a field that can't be measured reliably rather than showing a
+value that would always read `N/A`. This paragraph is that field's
+documentation, per the spec's own allowance for exactly this case.
 
 ## Raspberry Pi installation
 

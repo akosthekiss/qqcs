@@ -61,7 +61,6 @@ Item {
             }
             Text { color: "#dddddd"; font.pixelSize: 13; text: "Audio codec: " + root.naOr(root.info.audioCodec) }
             Text { color: "#dddddd"; font.pixelSize: 13; text: "RTSP transport: " + root.naOr(root.info.rtspTransport) }
-            Text { color: "#dddddd"; font.pixelSize: 13; text: "Latency: N/A" }
             Text {
                 color: "#dddddd"; font.pixelSize: 13
                 text: "Dropped frames: " + (root.info.droppedFrames !== undefined ? root.info.droppedFrames : "N/A")
