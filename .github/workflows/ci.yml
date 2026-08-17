@@ -66,17 +66,23 @@ jobs:
       # via apt's qt6-base-dev, even though that's what README.md's
       # "Building for Linux desktop" section documents. Ubuntu LTS apt
       # repos lag well behind current Qt (24.04 ships Qt 6.4.2, below
-      # the 6.5 minimum this project's CMakeLists.txt enforces via
-      # qt_standard_project_setup(REQUIRES 6.5)), so a plain apt install
+      # the 6.8 minimum this project's CMakeLists.txt enforces via
+      # qt_standard_project_setup(REQUIRES 6.8)), so a plain apt install
       # cannot reliably satisfy a CI build across this matrix.
       # install-qt-action pulls an official prebuilt Qt instead,
       # sidestepping that gap; everything else here (GStreamer, yaml-cpp,
       # build tools) still comes from apt, matching the README.
-      - name: Install Qt 6.7
+      # No `modules:` entry here: QtQuick/QtQml (qtdeclarative) is part
+      # of the base qtbase package for Qt6 on Linux, not a separate
+      # add-on -- requesting it explicitly makes aqt (which this action
+      # wraps) fail immediately with "packages ['qtdeclarative'] were
+      # not found while parsing XML of package information", confirmed
+      # by running `aqt install-qt linux desktop 6.8.1 linux_gcc_64 -m
+      # qtdeclarative` locally.
+      - name: Install Qt 6.8
         uses: jurplel/install-qt-action@v4
         with:
-          version: "6.7.*"
-          modules: "qtdeclarative"
+          version: "6.8.*"
 
       - name: Install remaining dependencies
         run: |
@@ -151,17 +157,34 @@ jobs:
       - name: Install target (arm64) dependencies
         run: |
           sudo apt-get install -y \
-              qt6-base-dev:arm64 qt6-declarative-dev:arm64 qml6-module-qtquick:arm64 \
               libgstreamer1.0-dev:arm64 gstreamer1.0-plugins-base:arm64 \
               gstreamer1.0-plugins-good:arm64 gstreamer1.0-plugins-bad:arm64 \
               gstreamer1.0-plugins-ugly:arm64 gstreamer1.0-libav:arm64 \
               libyaml-cpp-dev:arm64 libcec-dev:arm64
 
+      # Not from apt's qt6-base-dev:arm64 -- see README.md's "Cross-
+      # compiling from a Linux host" section: Raspberry Pi OS/Ubuntu's
+      # own Qt6 packages fall well short of this project's 6.8+
+      # requirement. aqtinstall's linux_arm64 host packages are prebuilt
+      # for running natively on arm64 hardware, but since installing
+      # them is just downloading and unpacking files, nothing stops
+      # fetching the same files here to use as a cross-compile target
+      # instead (confirmed locally: this produces a plain
+      # <dir>/6.8.1/gcc_arm64 tree with a working Qt6Config.cmake in
+      # it). The untested part is the combination with
+      # crossbuild-essential-arm64's cross-compiler just below -- Qt's
+      # official arm64 build targets a specific Ubuntu/glibc version,
+      # which may not exactly match this runner's cross-compiler.
+      - name: Install Qt 6.8 for arm64 (aqtinstall)
+        run: |
+          pip install --user aqtinstall
+          python3 -m aqt install-qt linux_arm64 desktop 6.8.1 linux_gcc_arm64 -O "$HOME/Qt"
+
       - name: Configure
         run: |
           cmake -S . -B build-rpi -G Ninja \
               -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/ci/arm64-toolchain.cmake \
-              -DCMAKE_PREFIX_PATH=/usr/lib/aarch64-linux-gnu/cmake \
+              -DCMAKE_PREFIX_PATH="$HOME/Qt/6.8.1/gcc_arm64;/usr/lib/aarch64-linux-gnu/cmake" \
               -DQQCS_ENABLE_CEC=ON
 
       - name: Build

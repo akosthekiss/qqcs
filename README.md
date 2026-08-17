@@ -368,8 +368,8 @@ resolution and the window/tile size at the time.
 
 | Platform | Versions | Verified in this project's own development |
 |---|---|---|
-| macOS | Whatever your installed Qt 6.5+ supports as a minimum (Qt 6.5 itself requires macOS 12 Monterey or later) | Yes — built and run extensively on macOS (arm64) against a real 7-camera RTSP setup |
-| Linux desktop | Debian 12 (Bookworm) / Ubuntu 22.04 (Jammy) or newer, or any distribution providing Qt 6.5+ and a reasonably current GStreamer 1.x (nothing exotic is used; this project's own testing used 1.28.6 via Homebrew) | No — designed to share the exact same code path as macOS (no CEC, same QPA auto-detection), but not run on a Linux desktop specifically in this environment |
+| macOS | Whatever your installed Qt 6.8+ supports as a minimum (Qt 6.8 itself requires macOS 12 Monterey or later) | Yes — built and run extensively on macOS (arm64) against a real 7-camera RTSP setup |
+| Linux desktop | Debian 12 (Bookworm) / Ubuntu 22.04 (Jammy) or newer, or any distribution providing Qt 6.8+ and a reasonably current GStreamer 1.x (nothing exotic is used; this project's own testing used 1.28.6 via Homebrew) — note that neither Debian 12 nor Ubuntu 22.04/24.04's own apt packages actually reach Qt 6.8 yet, so a non-apt Qt (the official installer, `aqtinstall`, or building Qt from source) is needed there; see *Building for Linux desktop* below | No — designed to share the exact same code path as macOS (no CEC, same QPA auto-detection), but not run on a Linux desktop specifically in this environment |
 | Raspberry Pi | Raspberry Pi 5, Raspberry Pi OS 64-bit (Bookworm-based) | No — no Raspberry Pi hardware was available; see *Known limitations* |
 
 ## Dependencies
@@ -378,7 +378,7 @@ resolution and the window/tile size at the time.
 |---|---|---|---|
 | CMake ≥ 3.21 | Build | `brew install cmake` | `apt install cmake` |
 | Ninja | Build | `brew install ninja` | `apt install ninja-build` |
-| Qt 6.5+ (Core, Quick, Qml, Test) | GUI | `brew install qt` | `apt install qt6-base-dev qt6-declarative-dev qml6-module-qtquick qt6-tools-dev` |
+| Qt 6.8+ (Core, Quick, Qml, Test) | GUI | `brew install qt` | Not available from apt on Debian 12/Ubuntu 22.04/24.04 (their Qt6 packages are too old); use the [Qt online installer](https://www.qt.io/download-qt-installer-oss) or [`aqtinstall`](https://github.com/miurahr/aqtinstall) instead |
 | GStreamer 1.x (core + app + video + audio + sdp + good/bad/ugly/libav plugins) | RTSP/video/audio | `brew install gstreamer` | `apt install libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav` |
 | yaml-cpp | Config parsing | `brew install yaml-cpp` | `apt install libyaml-cpp-dev` |
 | libCEC | HDMI-CEC (Raspberry Pi only) | `brew install libcec` (only if you want to build/test the real adapter on desktop) | `apt install libcec-dev` |
@@ -403,46 +403,68 @@ The resulting binary is `build/qqcs`; the two manual smoke-test tools
 
 ## Building for Linux desktop
 
+apt's own Qt6 packages are too old on every currently-supported Debian/
+Ubuntu release (Ubuntu 22.04 ships Qt 6.2.4, 24.04 ships 6.4.2; Debian
+12 is in the same range) — below this project's Qt 6.8+ requirement.
+Install everything else from apt, but get Qt itself from
+[`aqtinstall`](https://github.com/miurahr/aqtinstall) (a thin wrapper
+around Qt's own official prebuilt packages) or the
+[Qt online installer](https://www.qt.io/download-qt-installer-oss):
+
 ```sh
 sudo apt update
-sudo apt install cmake ninja-build qt6-base-dev qt6-declarative-dev \
-    qml6-module-qtquick qt6-tools-dev libgstreamer1.0-dev \
+sudo apt install cmake ninja-build libgstreamer1.0-dev \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
-    gstreamer1.0-libav libyaml-cpp-dev pkg-config
-cmake -S . -B build -G Ninja
+    gstreamer1.0-libav libyaml-cpp-dev pkg-config python3-pip
+
+pip install --user aqtinstall
+python3 -m aqt install-qt linux desktop 6.8.1 linux_gcc_64 -O ~/Qt
+
+cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=~/Qt/6.8.1/gcc_64
 cmake --build build
 ```
 
-No `CMAKE_PREFIX_PATH` override is needed here — apt's Qt6 packages are
-already on CMake's default search path. HDMI-CEC is off by default on
-non-ARM Linux; add `-DQQCS_ENABLE_CEC=ON` if you've also installed
-`libcec-dev` and want to build/test the real adapter (see the CMake
-option note under *Building for Raspberry Pi* below).
+(QtQuick/QtQml is part of the base install here, not a separate
+`-m` module to request.)
+
+HDMI-CEC is off by default on non-ARM Linux; add `-DQQCS_ENABLE_CEC=ON`
+if you've also installed `libcec-dev` and want to build/test the real
+adapter (see the CMake option note under *Building for Raspberry Pi*
+below).
 
 ## Building for Raspberry Pi
 
 ### Directly on the Pi (recommended, simplest)
 
 This is by far the most reliable approach — it needs no cross-compiler,
-sysroot, or multiarch setup, only the same steps as the Linux desktop
-build above, just run on the Pi itself:
+sysroot, or multiarch setup, just the same apt-vs-aqtinstall split as
+the Linux desktop build above (Raspberry Pi OS's apt Qt6 packages are
+just as far below 6.8 as Debian/Ubuntu's are), run on the Pi itself.
+`aqtinstall` has an arm64-native package set (host `linux_arm64`) for
+exactly this case — official prebuilt Qt binaries that run directly on
+the Pi's own aarch64 Raspberry Pi OS, no compiling Qt from source:
 
 ```sh
 sudo apt update
-sudo apt install cmake ninja-build qt6-base-dev qt6-declarative-dev \
-    qml6-module-qtquick qt6-tools-dev libgstreamer1.0-dev \
+sudo apt install cmake ninja-build libgstreamer1.0-dev \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
-    gstreamer1.0-libav libyaml-cpp-dev libcec-dev pkg-config
-cmake -S . -B build -G Ninja
+    gstreamer1.0-libav libyaml-cpp-dev libcec-dev pkg-config python3-pip
+
+pip install --user aqtinstall
+python3 -m aqt install-qt linux_arm64 desktop 6.8.1 linux_gcc_arm64 -O ~/Qt
+
+cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=~/Qt/6.8.1/gcc_arm64
 cmake --build build
 ```
 
 HDMI-CEC support (`QQCS_ENABLE_CEC`) defaults to **on** here, since
 CMake detects the aarch64/Linux combination automatically. The
 trade-off is build time: compiling on the Pi itself, rather than on a
-faster machine, is noticeably slower — expect it to take a while.
+faster machine, is noticeably slower — expect it to take a while (Qt
+itself no longer needs compiling here, only qqcs's own, much smaller,
+source tree).
 
 ### Cross-compiling from a Linux host (advanced, faster)
 
@@ -473,13 +495,32 @@ sudo apt update
 # 3. Install target (arm64) *runtime and dev* packages alongside your
 #    host's own (amd64) tools -- multiarch keeps them in separate paths
 #    (/usr/lib/aarch64-linux-gnu/ vs /usr/lib/x86_64-linux-gnu/), so
-#    nothing conflicts.
+#    nothing conflicts. Qt is deliberately not in this list -- see
+#    below.
 sudo apt install \
-    qt6-base-dev:arm64 qt6-declarative-dev:arm64 qml6-module-qtquick:arm64 \
     libgstreamer1.0-dev:arm64 gstreamer1.0-plugins-base:arm64 \
     gstreamer1.0-plugins-good:arm64 gstreamer1.0-plugins-bad:arm64 \
     gstreamer1.0-plugins-ugly:arm64 gstreamer1.0-libav:arm64 \
     libyaml-cpp-dev:arm64 libcec-dev:arm64
+
+# 4. Get an arm64 Qt build via aqtinstall instead of apt (Raspberry Pi
+#    OS's own Qt6 packages fall well short of this project's 6.8+
+#    requirement -- see *Building for Linux desktop* above for the
+#    same issue on desktop Linux). aqtinstall's `linux_arm64` host is
+#    meant for installing directly on arm64 hardware, but since it's
+#    only downloading and unpacking prebuilt files, nothing stops
+#    fetching those same files on an x86_64 host to use as a
+#    cross-compile target -- confirmed by actually running this command
+#    and inspecting its output (a plain `<dir>/6.8.1/gcc_arm64` tree
+#    with a working `lib/cmake/Qt6/Qt6Config.cmake` in it), though the
+#    *combination* with the cross-compiler above was not verified
+#    end-to-end: Qt's official arm64 build is built against a specific
+#    Ubuntu/glibc version, which may or may not exactly match whatever
+#    `crossbuild-essential-arm64` provides on your build host -- if
+#    linking fails with undefined/version-mismatched symbols, that ABI
+#    gap is the first thing to check.
+pip install --user aqtinstall
+python3 -m aqt install-qt linux_arm64 desktop 6.8.1 linux_gcc_arm64 -O ~/Qt
 ```
 
 Write a CMake toolchain file, e.g. `arm64-toolchain.cmake`:
@@ -503,10 +544,15 @@ Configure and build with it:
 ```sh
 cmake -S . -B build-rpi -G Ninja \
     -DCMAKE_TOOLCHAIN_FILE=$PWD/arm64-toolchain.cmake \
-    -DCMAKE_PREFIX_PATH=/usr/lib/aarch64-linux-gnu/cmake \
+    -DCMAKE_PREFIX_PATH="$HOME/Qt/6.8.1/gcc_arm64;/usr/lib/aarch64-linux-gnu/cmake" \
     -DQQCS_ENABLE_CEC=ON
 cmake --build build-rpi
 ```
+
+(`CMAKE_PREFIX_PATH` here lists two directories, semicolon-separated:
+the aqtinstall Qt tree for `find_package(Qt6 ...)`, and the multiarch
+apt tree for `find_package(yaml-cpp ...)`; GStreamer is found via
+`pkg-config`, using the toolchain file's `PKG_CONFIG_LIBDIR` instead.)
 
 Copy the resulting `build-rpi/qqcs` to the Pi (e.g.
 `scp build-rpi/qqcs <user>@<pi-host>:/tmp/`) and install it there — it

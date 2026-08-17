@@ -18,8 +18,7 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Core Quick Qml Test)
-qt_standard_project_setup(REQUIRES 6.5)
-qt_policy(SET QTP0004 NEW)
+qt_standard_project_setup(REQUIRES 6.8)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GST REQUIRED IMPORTED_TARGET
