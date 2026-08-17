@@ -1,4 +1,4 @@
-# QQCS — Quick Quad Camera Station
+# QQCS — Qt Quick Camera Station
 
 A native C++/Qt6/QML security-camera monitor for multiple RTSP cameras.
 Primary target: Raspberry Pi 5 connected to a TV over HDMI, controlled via
