@@ -8,10 +8,10 @@
 // only compiled when QQCS_ENABLE_CEC is set -- see src/cec/CMakeLists.txt)
 // and CecAdapterStub.cpp (no-op) both implement this exact header, so
 // nothing outside src/cec/ -- not even main.cpp -- can tell which one is
-// linked in. That is what makes "CEC hiánya nem okozhat leállást" (SPEC
-// §25/§28) structurally true rather than a runtime check someone could
-// forget: there is no code path where CEC's absence is even observable
-// at the call site.
+// linked in. That is what makes "CEC's absence must never block the app"
+// (SPEC §25/§28) structurally true rather than a runtime check someone
+// could forget: there is no code path where CEC's absence is even
+// observable at the call site.
 class CecAdapter : public QObject
 {
     Q_OBJECT

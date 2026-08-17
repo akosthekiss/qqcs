@@ -35,7 +35,7 @@ Item {
         onClicked: navigationController.selectMosaicTile(tile.tileIndex) // SPEC §11: left-click enters fullscreen
     }
 
-    // SPEC §10: "A fókuszált csempét jól látható vizuális keret jelölje."
+    // SPEC §10: the focused tile must be marked with a clearly visible frame.
     Rectangle {
         anchors.fill: parent
         color: "transparent"

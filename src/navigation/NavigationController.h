@@ -11,8 +11,8 @@
 #include <QVector>
 
 // Owns view/focus/zoom/pan state and decides what each InputAction means
-// in the current state (SPEC §24: "NavigationController dönti el az action
-// jelentését"). InputManager (a later milestone) always emits the same
+// in the current state (SPEC §24: NavigationController decides what the
+// action means). InputManager (a later milestone) always emits the same
 // plain action regardless of app state -- all state-dependent remapping
 // lives here, not there.
 class NavigationController : public QObject

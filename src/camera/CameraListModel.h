@@ -7,8 +7,8 @@
 #include <QVariantMap>
 #include <QVector>
 
-// Read-only data seam handed to the UI layer (SPEC §5: "GUI ne kezelje
-// közvetlenül... a GStreamer pipeline-okat"). Camera order == YAML order,
+// Read-only data seam handed to the UI layer (SPEC §5: the GUI must not
+// handle GStreamer pipelines directly). Camera order == YAML order,
 // which is also the canonical navigation order used by NavMath.
 class CameraListModel : public QAbstractListModel
 {

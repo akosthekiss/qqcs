@@ -11,8 +11,8 @@ namespace VideoFillMath {
 
 // The sub-rect of the source texture to sample from, in texture pixel
 // coordinates, so that texSize's aspect ratio is cropped down to match
-// itemSize's -- centered, per SPEC §9's "crop alapértelmezés szerint
-// középre igazított".
+// itemSize's -- centered, per SPEC §9's requirement that cropping default
+// to a centered crop.
 inline QRectF coverSourceRect(QSizeF texSize, QSizeF itemSize)
 {
     if (texSize.width() <= 0 || texSize.height() <= 0 || itemSize.width() <= 0 || itemSize.height() <= 0)

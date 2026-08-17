@@ -5,7 +5,7 @@
 // SPEC §22's field list. latencyMs stays -1 (N/A) deliberately -- true
 // glass-to-glass latency needs RTCP NTP correlation that's unreliable
 // across consumer cameras, and the spec explicitly allows N/A when a
-// field "nem megbízhatóan mérhető".
+// field cannot be measured reliably.
 struct Diagnostics {
     QString videoCodec;
     int width = 0;
