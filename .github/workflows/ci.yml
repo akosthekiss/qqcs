@@ -1,0 +1,178 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    name: macOS (${{ matrix.os }}, arm64) native build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Mirrors README.md's "Building for macOS" recipe exactly, so this
+      # job is a direct check that those documented steps still work.
+      - name: Install dependencies
+        run: brew install cmake ninja qt gstreamer yaml-cpp pkg-config ffmpeg jq
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Unit tests (ctest)
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Functional RTSP smoke test
+        run: ci/functional-smoke-test.sh build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QQCS_CI_ARTIFACT_DIR: /tmp/qqcs-ci
+
+      - name: Upload smoke-test screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqcs-screenshot-${{ matrix.os }}
+          path: /tmp/qqcs-ci/screenshot.png
+          if-no-files-found: warn
+
+  linux:
+    name: Linux (${{ matrix.os }}) native build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-26.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # NOTE: unlike the macOS job, this deliberately does NOT install Qt
+      # via apt's qt6-base-dev, even though that's what README.md's
+      # "Building for Linux desktop" section documents. Ubuntu LTS apt
+      # repos lag well behind current Qt (24.04 ships Qt 6.4.2, below
+      # the 6.5 minimum this project's CMakeLists.txt enforces via
+      # qt_standard_project_setup(REQUIRES 6.5)), so a plain apt install
+      # cannot reliably satisfy a CI build across this matrix.
+      # install-qt-action pulls an official prebuilt Qt instead,
+      # sidestepping that gap; everything else here (GStreamer, yaml-cpp,
+      # build tools) still comes from apt, matching the README.
+      - name: Install Qt 6.7
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7.*"
+          modules: "qtdeclarative"
+
+      - name: Install remaining dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libgstreamer1.0-dev \
+              gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+              gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
+              gstreamer1.0-libav libyaml-cpp-dev pkg-config ffmpeg jq
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Unit tests (ctest)
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Functional RTSP smoke test
+        run: ci/functional-smoke-test.sh build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QQCS_CI_ARTIFACT_DIR: /tmp/qqcs-ci
+
+      - name: Upload smoke-test screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqcs-screenshot-${{ matrix.os }}
+          path: /tmp/qqcs-ci/screenshot.png
+          if-no-files-found: warn
+
+  raspberrypi-cross:
+    name: Raspberry Pi (arm64) cross-compile
+    # Pinned to 22.04 specifically (not a matrix with 24.04): the classic
+    # single-file /etc/apt/sources.list this recipe edits with sed is
+    # 22.04's default layout. 24.04 switched to the deb822 /etc/apt/
+    # sources.list.d/ubuntu.sources format, which would need a separate,
+    # untested recipe -- not worth the added risk for what is already an
+    # experimental job (see the "not verified" note below).
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # Follows README.md's "Cross-compiling from a Linux host" recipe
+      # step by step. That section is explicitly documented there as
+      # unverified (no arm64 cross-toolchain/target packages were
+      # available in this project's own development environment) -- this
+      # job is the first real exercise of it, on the closest thing to
+      # that recipe's assumed host this project has access to.
+      - name: Add arm64 architecture and cross-compiler
+        run: |
+          sudo dpkg --add-architecture arm64
+          # GitHub-hosted runners point amd64 apt sources at an Azure
+          # mirror that does not carry arm64 packages at all; arm64 has
+          # to come from ports.ubuntu.com instead. Restrict the existing
+          # entries to amd64 and add arm64-specific ones, so apt never
+          # tries to fetch the wrong architecture from the wrong mirror.
+          sudo sed -i \
+              -e 's/^deb http/deb [arch=amd64] http/' \
+              -e 's/^deb-src http/deb-src [arch=amd64] http/' \
+              /etc/apt/sources.list
+          CODENAME=$(lsb_release -cs)
+          sudo tee /etc/apt/sources.list.d/arm64.list > /dev/null <<EOF
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports ${CODENAME} main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports ${CODENAME}-updates main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports ${CODENAME}-security main restricted universe multiverse
+          EOF
+          sudo apt-get update
+          sudo apt-get install -y crossbuild-essential-arm64 cmake ninja-build pkg-config
+
+      - name: Install target (arm64) dependencies
+        run: |
+          sudo apt-get install -y \
+              qt6-base-dev:arm64 qt6-declarative-dev:arm64 qml6-module-qtquick:arm64 \
+              libgstreamer1.0-dev:arm64 gstreamer1.0-plugins-base:arm64 \
+              gstreamer1.0-plugins-good:arm64 gstreamer1.0-plugins-bad:arm64 \
+              gstreamer1.0-plugins-ugly:arm64 gstreamer1.0-libav:arm64 \
+              libyaml-cpp-dev:arm64 libcec-dev:arm64
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-rpi -G Ninja \
+              -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/ci/arm64-toolchain.cmake \
+              -DCMAKE_PREFIX_PATH=/usr/lib/aarch64-linux-gnu/cmake \
+              -DQQCS_ENABLE_CEC=ON
+
+      - name: Build
+        run: cmake --build build-rpi
+
+      # Cross-compiled arm64 binaries cannot run on this amd64 runner, so
+      # this job stops at "does it build, and is the output actually
+      # arm64" -- it cannot exercise ctest or the functional smoke test
+      # the native jobs run above (that would need arm64 emulation, e.g.
+      # QEMU user-mode/binfmt, which was deliberately left out here as a
+      # separate, riskier addition rather than bundled silently into this
+      # already-experimental job).
+      - name: Verify output binary architecture
+        run: file build-rpi/qqcs | tee /dev/stderr | grep -q "ELF 64-bit.*ARM aarch64"
