@@ -1,3 +1,10 @@
+// Copyright (c) 2026 Akos Kiss.
+//
+// Licensed under the BSD 3-Clause License
+// <LICENSE.md or https://opensource.org/licenses/BSD-3-Clause>.
+// This file may not be copied, modified, or distributed except
+// according to those terms.
+
 import QtQuick
 
 // SPEC §20/§20.1/§20.2: always-on overlay, readable from across a room.

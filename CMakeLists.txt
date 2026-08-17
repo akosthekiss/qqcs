@@ -1,3 +1,10 @@
+# Copyright (c) 2026 Akos Kiss.
+#
+# Licensed under the BSD 3-Clause License
+# <LICENSE.md or https://opensource.org/licenses/BSD-3-Clause>.
+# This file may not be copied, modified, or distributed except
+# according to those terms.
+
 cmake_minimum_required(VERSION 3.21)
 project(qqcs LANGUAGES CXX)
 

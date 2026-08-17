@@ -1,3 +1,10 @@
+# Copyright (c) 2026 Akos Kiss.
+#
+# Licensed under the BSD 3-Clause License
+# <LICENSE.md or https://opensource.org/licenses/BSD-3-Clause>.
+# This file may not be copied, modified, or distributed except
+# according to those terms.
+
 qt_add_executable(test_configloader test_configloader.cpp)
 target_link_libraries(test_configloader PRIVATE Qt6::Test qqcs_config)
 target_include_directories(test_configloader PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)

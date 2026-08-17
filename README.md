@@ -603,3 +603,7 @@ QQCS_DEBUG_SCREENSHOT=/tmp/qqcs_frame.png QQCS_DEBUG_QUIT_AFTER_MS=6000 \
   camera-configuration GUI, PTZ control, recording/playback, motion
   detection, AI/object detection, cloud integration, a mobile app, a web
   frontend, remote administration, and authentication.
+
+## Copyright and Licensing
+
+Licensed under the [BSD 3-Clause License](LICENSE.md).

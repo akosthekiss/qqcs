@@ -1,3 +1,10 @@
+// Copyright (c) 2026 Akos Kiss.
+//
+// Licensed under the BSD 3-Clause License
+// <LICENSE.md or https://opensource.org/licenses/BSD-3-Clause>.
+// This file may not be copied, modified, or distributed except
+// according to those terms.
+
 // Manual verification tool for RtspStreamPipeline (no ctest integration --
 // requires a live RTSP camera). Reads the URL from QQCS_SMOKE_URL so no
 // credential ever needs to be written into the repository.

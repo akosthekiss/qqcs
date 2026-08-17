@@ -1,3 +1,10 @@
+// Copyright (c) 2026 Akos Kiss.
+//
+// Licensed under the BSD 3-Clause License
+// <LICENSE.md or https://opensource.org/licenses/BSD-3-Clause>.
+// This file may not be copied, modified, or distributed except
+// according to those terms.
+
 // Manual verification tool for concurrent CameraManager pipelines (mosaic
 // sub-stream + lazily-started fullscreen main-stream running at once).
 // No ctest integration -- requires a live RTSP camera.
