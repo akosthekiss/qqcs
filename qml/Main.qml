@@ -7,6 +7,13 @@ Window {
     height: 720
     visible: true
     title: "QQCS"
+    // Start maximized (fills the available screen space) but keep the
+    // normal OS window chrome (title bar, app name, window controls) --
+    // deliberately not Window.FullScreen, which would hide those. On
+    // platforms with no window manager at all (e.g. eglfs on Raspberry
+    // Pi) there's no chrome to keep either way; the window already fills
+    // the screen there regardless of this setting.
+    visibility: Window.Maximized
 
     onWidthChanged: navigationController.setViewportSize(Qt.size(width, height))
     onHeightChanged: navigationController.setViewportSize(Qt.size(width, height))
