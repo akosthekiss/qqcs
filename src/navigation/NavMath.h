@@ -20,10 +20,14 @@ inline int cyclicIndex(int current, int count, int dir)
     return ((current + dir) % count + count) % count;
 }
 
-// Mosaic Up/Down (SPEC §10): same-column row walk. Rows past the edge, or
-// past the last populated row, are a no-op; landing on a short trailing
-// row clamps to the nearest existing camera (row-major fill only ever
-// leaves gaps trailing in the last row, so a single min() suffices).
+// Mosaic Up/Down (SPEC §10): same-column row walk. If the target row has
+// no cell in the *same* column -- the trailing, partially-empty last row
+// -- the move is a no-op: focus stays put at the bottom of its current
+// column, rather than jumping sideways into a different column just
+// because some camera happens to exist further along that row. Row-major
+// fill means that once a column is missing at some row, it's missing at
+// every row after that too, so "stay put" is always the right answer,
+// never "snap to a lower cell in the same column instead".
 // dir is -1 (Up) or +1 (Down).
 inline int verticalMove(int current, int columns, int count, int dir)
 {
@@ -34,10 +38,10 @@ inline int verticalMove(int current, int columns, int count, int dir)
     const int targetRow = row + dir;
     if (targetRow < 0)
         return current;
-    const int rowStart = targetRow * columns;
-    if (rowStart >= count)
+    const int targetIndex = targetRow * columns + col;
+    if (targetIndex >= count)
         return current;
-    return std::min(rowStart + col, count - 1);
+    return targetIndex;
 }
 
 // Zoom-to-point pivot math (SPEC §15/§16): the content pixel under `pivot`

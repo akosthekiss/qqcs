@@ -29,7 +29,7 @@ private slots:
     void cyclicIndex_linearAdjacent();
     void cyclicIndex_wrapsAtEnds();
     void verticalMove_withinFullRows();
-    void verticalMove_lastRowGapsClampToNearest();
+    void verticalMove_missingCellInSameColumnStaysPut();
     void verticalMove_noOpAtGridEdges();
     void zoomedPan_centerPivotScalesTowardCenter();
     void zoomedPan_offCenterPivotKeepsContentPointFixed();
@@ -76,11 +76,14 @@ void TestNavigation::verticalMove_withinFullRows()
     QCOMPARE(NavMath::verticalMove(6, 4, 10, -1), 2);
 }
 
-void TestNavigation::verticalMove_lastRowGapsClampToNearest()
+void TestNavigation::verticalMove_missingCellInSameColumnStaysPut()
 {
-    // row1 col3 (camera 8, index 7) -> Down -> row2 has only col0/col1
-    // (cameras 9/10) -> clamp to last existing camera (index 9, camera 10)
-    QCOMPARE(NavMath::verticalMove(7, 4, 10, +1), 9);
+    // row1 col3 (camera 8, index 7) -> Down -> row2 has no col3 cell at all
+    // (only cameras 9/10 in col0/col1) -> stays at camera 8, does NOT jump
+    // sideways into col0/col1 just because a camera exists there.
+    QCOMPARE(NavMath::verticalMove(7, 4, 10, +1), 7);
+    // row1 col2 (camera 7, index 6) -> Down -> row2 has no col2 either -> stays put.
+    QCOMPARE(NavMath::verticalMove(6, 4, 10, +1), 6);
     // row2 col1 (camera 10, index 9) -> Up -> row1 col1 (camera 6, index 5)
     QCOMPARE(NavMath::verticalMove(9, 4, 10, -1), 5);
 }

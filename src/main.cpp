@@ -122,18 +122,26 @@ int main(int argc, char *argv[])
     // QML Keys.onPressed -> inputManager.handleKeyEvent wiring without
     // needing OS-level Accessibility permissions for synthetic keystrokes.
     if (const char *injectKey = std::getenv("QQCS_DEBUG_INJECT_KEY")) {
-        const int key = QByteArray(injectKey).toInt();
+        // Comma-separated list of Qt::Key codes, sent in order. sendEvent()
+        // is synchronous -- each key's full handleInputAction() call (and
+        // any resulting state change) completes before the next is sent,
+        // so no inter-key delay is needed.
+        QVector<int> keys;
+        for (const QByteArray &part : QByteArray(injectKey).split(','))
+            keys.append(part.toInt());
         // 2500ms: deliberately after QQCS_DEBUG_ZOOM_STEPS/CLICK_TILE's
         // delays, so this hook can verify state-dependent behavior (e.g.
         // Escape resetting a zoom applied by the other debug hooks first).
-        QTimer::singleShot(2500, &engine, [&engine, key] {
+        QTimer::singleShot(2500, &engine, [&engine, keys] {
             if (engine.rootObjects().isEmpty())
                 return;
             if (auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first())) {
-                QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier);
-                QCoreApplication::sendEvent(window, &press);
-                QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier);
-                QCoreApplication::sendEvent(window, &release);
+                for (int key : keys) {
+                    QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier);
+                    QCoreApplication::sendEvent(window, &press);
+                    QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier);
+                    QCoreApplication::sendEvent(window, &release);
+                }
             }
         });
     }
