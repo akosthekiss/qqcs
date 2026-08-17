@@ -75,6 +75,9 @@ target_link_libraries(qqcs PRIVATE
     qqcs_cec
 )
 
+include(GNUInstallDirs)
+install(TARGETS qqcs RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
 enable_testing()
 add_subdirectory(tests)
 add_subdirectory(tools/smoke_single_stream)
