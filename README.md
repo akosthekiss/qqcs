@@ -215,10 +215,10 @@ some unused headers taking a little extra disk space:
 
 ```sh
 sudo apt update
-sudo apt install libgstreamer1.0-dev gstreamer1.0-plugins-base \
+sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
     gstreamer1.0-plugins-ugly gstreamer1.0-libav \
-    qt6-base-dev libcec-dev libyaml-cpp-dev
+    qt6-base-dev libcec-dev libp8-platform-dev libyaml-cpp-dev
 ```
 
 If you're building directly on the Pi instead, installing the full
@@ -379,9 +379,9 @@ resolution and the window/tile size at the time.
 | CMake ≥ 3.21 | Build | `brew install cmake` | `apt install cmake` |
 | Ninja | Build | `brew install ninja` | `apt install ninja-build` |
 | Qt 6.8+ (Core, Quick, Qml, Test) | GUI | `brew install qt` | Not available from apt on Debian 12/Ubuntu 22.04/24.04 (their Qt6 packages are too old); use the [Qt online installer](https://www.qt.io/download-qt-installer-oss) or [`aqtinstall`](https://github.com/miurahr/aqtinstall) instead |
-| GStreamer 1.x (core + app + video + audio + sdp + good/bad/ugly/libav plugins) | RTSP/video/audio | `brew install gstreamer` | `apt install libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav` |
+| GStreamer 1.x (core + app + video + audio + sdp + good/bad/ugly/libav plugins) | RTSP/video/audio | `brew install gstreamer` | `apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav` |
 | yaml-cpp | Config parsing | `brew install yaml-cpp` | `apt install libyaml-cpp-dev` |
-| libCEC | HDMI-CEC (Raspberry Pi only) | `brew install libcec` (only if you want to build/test the real adapter on desktop) | `apt install libcec-dev` |
+| libCEC | HDMI-CEC (Raspberry Pi only) | `brew install libcec` (only if you want to build/test the real adapter on desktop) | `apt install libcec-dev libp8-platform-dev` |
 | pkg-config | Build | `brew install pkg-config` | `apt install pkg-config` |
 
 yaml-cpp is fetched automatically via CMake `FetchContent` if not found on
@@ -413,7 +413,7 @@ around Qt's own official prebuilt packages) or the
 
 ```sh
 sudo apt update
-sudo apt install cmake ninja-build libgstreamer1.0-dev \
+sudo apt install cmake ninja-build libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
     gstreamer1.0-libav libyaml-cpp-dev pkg-config python3-pip
@@ -447,10 +447,10 @@ the Pi's own aarch64 Raspberry Pi OS, no compiling Qt from source:
 
 ```sh
 sudo apt update
-sudo apt install cmake ninja-build libgstreamer1.0-dev \
+sudo apt install cmake ninja-build libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
-    gstreamer1.0-libav libyaml-cpp-dev libcec-dev pkg-config python3-pip
+    gstreamer1.0-libav libyaml-cpp-dev libcec-dev libp8-platform-dev pkg-config python3-pip
 
 pip install --user aqtinstall
 python3 -m aqt install-qt linux_arm64 desktop 6.8.1 linux_gcc_arm64 -O ~/Qt
@@ -498,10 +498,11 @@ sudo apt update
 #    nothing conflicts. Qt is deliberately not in this list -- see
 #    below.
 sudo apt install \
-    libgstreamer1.0-dev:arm64 gstreamer1.0-plugins-base:arm64 \
+    libgstreamer1.0-dev:arm64 libgstreamer-plugins-base1.0-dev:arm64 \
+    gstreamer1.0-plugins-base:arm64 \
     gstreamer1.0-plugins-good:arm64 gstreamer1.0-plugins-bad:arm64 \
     gstreamer1.0-plugins-ugly:arm64 gstreamer1.0-libav:arm64 \
-    libyaml-cpp-dev:arm64 libcec-dev:arm64
+    libyaml-cpp-dev:arm64 libcec-dev:arm64 libp8-platform-dev:arm64
 
 # 4. Get an arm64 Qt build via aqtinstall instead of apt (Raspberry Pi
 #    OS's own Qt6 packages fall well short of this project's 6.8+
