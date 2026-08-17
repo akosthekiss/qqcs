@@ -25,12 +25,14 @@ Item {
     readonly property bool showName: configModel.overlay.showName && cameraName.length > 0
     readonly property bool showStatusLine: configModel.overlay.showStatus
     readonly property string audioSuffix: showAudioStatus ? (hasAudio ? " (WITH AUDIO)" : " (NO AUDIO)") : ""
+    readonly property bool alignTop: configModel.overlay.position === "top"
 
     visible: configModel.overlay.enabled && (showName || showStatusLine)
 
     Rectangle {
         anchors.left: parent.left
-        anchors.bottom: parent.bottom
+        anchors.top: root.alignTop ? parent.top : undefined
+        anchors.bottom: root.alignTop ? undefined : parent.bottom
         anchors.margins: 8
         width: column.width + 16
         height: column.height + 10
