@@ -87,9 +87,11 @@ jobs:
       # every entry in this matrix installs Qt straight from apt --
       # unlike 24.04 (6.4.2), no aqtinstall/install-qt-action detour is
       # needed anywhere here.
+      - name: Update apt package lists
+        run: sudo apt-get update
+
       - name: Install dependencies
         run: |
-          sudo apt-get update
           sudo apt-get install -y cmake ninja-build \
               qt6-base-dev qt6-declarative-dev qml6-module-qtquick qt6-tools-dev \
               libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
