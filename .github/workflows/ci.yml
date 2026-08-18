@@ -14,11 +14,15 @@ permissions:
 
 jobs:
   macos:
-    name: macOS (${{ matrix.os }}, arm64) native build
+    name: macOS ${{ matrix.version }} (arm64) native build
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, macos-26]
+        include:
+          - os: macos-15
+            version: "15"
+          - os: macos-26
+            version: "26"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -52,39 +56,53 @@ jobs:
           if-no-files-found: warn
 
   linux:
-    name: Linux (${{ matrix.os }}) native build
+    name: Ubuntu ${{ matrix.version }} (${{ matrix.arch }}) native build
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, ubuntu-26.04]
+        include:
+          - os: ubuntu-26.04
+            version: "26.04"
+            arch: amd64
+            cec: false
+          # Same OS/build steps as the amd64 entry above -- the only
+          # real differences are the architecture itself and CEC
+          # (Raspberry Pi-relevant, off by default on amd64): no
+          # separate cross-compile/emulation/Raspberry-Pi-specific
+          # machinery is needed for this at all, GitHub's arm64-hosted
+          # runners just run it natively. ubuntu-26.04-arm is still
+          # marked "preview" by GitHub as of this writing, so
+          # flakiness/queueing here could be the runner image itself
+          # rather than this project's build.
+          - os: ubuntu-26.04-arm
+            version: "26.04"
+            arch: arm64
+            cec: true
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
-      # Unlike the macOS job, Qt does not come from apt's qt6-base-dev:
-      # Ubuntu LTS apt repos lag behind current Qt (24.04 ships 6.4.2,
-      # below the 6.8 minimum this project requires), so install-qt-
-      # action pulls an official prebuilt Qt instead. Everything else
-      # (GStreamer, yaml-cpp, build tools) still comes from apt. No
-      # `modules:` entry: QtQuick/QtQml is part of the base qtbase
-      # package for Qt6 on Linux, not a separate add-on -- requesting
-      # it explicitly makes this action's underlying aqt tool fail.
-      - name: Install Qt 6.8
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: "6.8.*"
-
-      - name: Install remaining dependencies
+      # Only ubuntu-26.04 is covered (not older LTS releases): its apt
+      # Qt6 (6.10.2) already clears this project's 6.8+ requirement, so
+      # every entry in this matrix installs Qt straight from apt --
+      # unlike 24.04 (6.4.2), no aqtinstall/install-qt-action detour is
+      # needed anywhere here.
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build libgstreamer1.0-dev \
-              libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base \
-              gstreamer1.0-plugins-good \
+          sudo apt-get install -y cmake ninja-build \
+              qt6-base-dev qt6-declarative-dev qml6-module-qtquick qt6-tools-dev \
+              libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+              gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
               gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
               gstreamer1.0-libav libyaml-cpp-dev pkg-config ffmpeg jq
 
+      - name: Install libCEC dependencies
+        if: matrix.cec
+        run: sudo apt-get install -y libcec-dev libp8-platform-dev
+
       - name: Configure
-        run: cmake -S . -B build -G Ninja
+        run: cmake -S . -B build -G Ninja ${{ matrix.cec && '-DQQCS_ENABLE_CEC=ON' || '' }}
 
       - name: Build
         run: cmake --build build
@@ -103,52 +121,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: qqcs-screenshot-${{ matrix.os }}
-          path: /tmp/qqcs-ci/screenshot.png
-          if-no-files-found: warn
-
-  raspberrypi:
-    name: Raspberry Pi (arm64) native build
-    # Runs natively on GitHub's arm64-hosted runner -- no cross-compile,
-    # no Docker/QEMU emulation, just an ordinary single-architecture
-    # Linux build like the "linux" job above. Still marked "preview" by
-    # GitHub as of this writing, so flakiness/queueing here could be the
-    # runner image itself rather than this project's build.
-    runs-on: ubuntu-26.04-arm
-    steps:
-      - uses: actions/checkout@v4
-
-      # Unlike the "linux" job above, Qt comes straight from apt here:
-      # Ubuntu 26.04 ships qt6-base-dev 6.10.2, above this project's
-      # 6.8+ requirement (24.04 ships 6.4.2, hence that job's detour).
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build \
-              qt6-base-dev qt6-declarative-dev qml6-module-qtquick qt6-tools-dev \
-              libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-              gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
-              gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
-              gstreamer1.0-libav libyaml-cpp-dev libcec-dev libp8-platform-dev pkg-config ffmpeg jq
-
-      - name: Configure
-        run: cmake -S . -B build -G Ninja -DQQCS_ENABLE_CEC=ON
-
-      - name: Build
-        run: cmake --build build
-
-      - name: Unit tests (ctest)
-        run: ctest --test-dir build --output-on-failure
-
-      - name: Functional RTSP smoke test
-        run: ci/functional-smoke-test.sh build
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          QQCS_CI_ARTIFACT_DIR: /tmp/qqcs-ci
-
-      - name: Upload smoke-test screenshot
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: qqcs-screenshot-ubuntu-26.04-arm
           path: /tmp/qqcs-ci/screenshot.png
           if-no-files-found: warn
