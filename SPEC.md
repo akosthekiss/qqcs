@@ -70,7 +70,9 @@ Do not use an Electron/webview-based GUI.
 Primary:
 
 * Raspberry Pi 5;
-* Raspberry Pi OS 64-bit;
+* a current, actively-maintained 64-bit Linux distribution suitable
+  for development, running on the Raspberry Pi (e.g. Raspberry Pi OS
+  or Ubuntu) — no specific distribution is mandated;
 * HDMI TV;
 * HDMI-CEC.
 

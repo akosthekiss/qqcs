@@ -192,15 +192,17 @@ documentation, per the spec's own allowance for exactly this case.
 
 ### OS installation
 
-1. Flash **Raspberry Pi OS (64-bit)** — Bookworm-based — to your
-   storage using Raspberry Pi's own imaging tool ("Raspberry Pi
-   Imager"). Alternatively, **Ubuntu 26.04** (Server or Desktop) also
-   officially supports the Pi 5 and is the OS this project's CI
-   actually builds and tests against — see *Building for Raspberry Pi*
-   below for the (simpler) steps that OS choice implies. Either way,
-   the imaging tool's advanced options let you enable SSH and set a
-   username/password/Wi-Fi/hostname up front, for a fully headless
-   setup with no monitor/keyboard ever needed on the Pi itself.
+1. Flash a current, actively-maintained 64-bit Linux distribution onto
+   your storage using Raspberry Pi's own imaging tool ("Raspberry Pi
+   Imager"). No specific distribution is required (see SPEC §4) —
+   **Ubuntu 26.04** (Server or Desktop) is what this project's CI
+   actually builds and tests against (see *Building for Raspberry Pi*
+   below for the simpler steps that choice implies), and
+   **Raspberry Pi OS (64-bit, Bookworm-based)** is the other option
+   documented there. Either way, the imaging tool's advanced options
+   let you enable SSH and set a username/password/Wi-Fi/hostname up
+   front, for a fully headless setup with no monitor/keyboard ever
+   needed on the Pi itself.
 2. Insert the storage, connect HDMI + network + power, and boot.
 3. Connect over SSH (`ssh <username>@<hostname>.local`, or by IP
    address) or use a directly-attached keyboard, and run through the
@@ -378,7 +380,7 @@ resolution and the window/tile size at the time.
 |---|---|---|
 | macOS | Whatever your installed Qt 6.8+ supports as a minimum (Qt 6.8 itself requires macOS 12 Monterey or later) | Yes — local development (arm64, against a real 7-camera RTSP setup) and CI (macos-15, macos-26, both arm64: build, ctest, functional RTSP smoke test) |
 | Linux desktop | Ubuntu 26.04, either architecture — the only Linux version this project actually tests anywhere; other distributions/versions providing Qt 6.8+ and a reasonably current GStreamer 1.x will likely also work (nothing exotic is used), but aren't verified, so aren't listed as supported | Yes — CI (ubuntu-26.04, amd64 and arm64: build, ctest, functional RTSP smoke test) |
-| Raspberry Pi 5 | Either Raspberry Pi OS 64-bit (Bookworm-based) — this project's originally intended target per its spec — or Ubuntu 26.04 (arm64); see *Building for Raspberry Pi* for both | Partially — CI verifies the same OS/architecture/CEC-enabled build+test+smoke-test path as the Ubuntu 26.04 option, on a generic arm64 runner rather than real Raspberry Pi hardware. Real hardware and Raspberry Pi OS specifically remain unverified anywhere, locally or in CI — see *Known limitations* |
+| Raspberry Pi 5 | No specific distribution is required (see SPEC §4) — either Ubuntu 26.04 (arm64) or Raspberry Pi OS 64-bit (Bookworm-based); see *Building for Raspberry Pi* for both | Partially — CI verifies the same OS/architecture/CEC-enabled build+test+smoke-test path as the Ubuntu 26.04 option, on a generic arm64 runner rather than real Raspberry Pi hardware. Real hardware and Raspberry Pi OS specifically remain unverified anywhere, locally or in CI — see *Known limitations* |
 
 ## Dependencies
 
@@ -481,14 +483,13 @@ cmake -S . -B build -G Ninja -DQQCS_ENABLE_CEC=ON
 cmake --build build
 ```
 
-**On Raspberry Pi OS** (Bookworm-based) — this project's originally
-intended target per its spec, but not independently verified anywhere,
-locally or in CI: its own Qt6 apt packages are just as far below 6.8
-as Debian/Ubuntu 22.04/24.04's are, so Qt needs to come from
-elsewhere. `aqtinstall` has an arm64-native package set (host
-`linux_arm64`) for exactly this case — official prebuilt Qt binaries
-that run directly on the Pi's own aarch64 OS, no compiling Qt from
-source:
+**On Raspberry Pi OS** (Bookworm-based) — the other documented option,
+not independently verified anywhere, locally or in CI: its own Qt6 apt
+packages are just as far below 6.8 as Debian/Ubuntu 22.04/24.04's are,
+so Qt needs to come from elsewhere. `aqtinstall` has an arm64-native
+package set (host `linux_arm64`) for exactly this case — official
+prebuilt Qt binaries that run directly on the Pi's own aarch64 OS, no
+compiling Qt from source:
 
 ```sh
 sudo apt update
