@@ -194,7 +194,11 @@ documentation, per the spec's own allowance for exactly this case.
 
 1. Flash **Raspberry Pi OS (64-bit)** — Bookworm-based — to your
    storage using Raspberry Pi's own imaging tool ("Raspberry Pi
-   Imager"). In its advanced options, you can enable SSH and set a
+   Imager"). Alternatively, **Ubuntu 26.04** (Server or Desktop) also
+   officially supports the Pi 5 and is the OS this project's CI
+   actually builds and tests against — see *Building for Raspberry Pi*
+   below for the (simpler) steps that OS choice implies. Either way,
+   the imaging tool's advanced options let you enable SSH and set a
    username/password/Wi-Fi/hostname up front, for a fully headless
    setup with no monitor/keyboard ever needed on the Pi itself.
 2. Insert the storage, connect HDMI + network + power, and boot.
@@ -207,18 +211,22 @@ documentation, per the spec's own allowance for exactly this case.
 If you're deploying a binary built elsewhere (see *Cross-compiling from
 a Linux host* below) rather than building directly on the Pi, you still
 need the runtime libraries present. The exact runtime-only (non-`-dev`)
-package names/version suffixes vary by Raspberry Pi OS release, so the
-simplest reliable option is to install the same `-dev` packages listed
-under *Building for Raspberry Pi* below — `-dev` packages depend on
-their runtime libraries too, so this always works correctly, just with
-some unused headers taking a little extra disk space:
+package names/version suffixes vary by OS release, so the simplest
+reliable option is to install the same `-dev` packages listed under
+*Building for Raspberry Pi* below — `-dev` packages depend on their
+runtime libraries too, so this always works correctly, just with some
+unused headers taking a little extra disk space (this applies whether
+you're on Ubuntu 26.04 or Raspberry Pi OS — the package names below are
+the same either way; only whether Qt itself also needs to come from
+`aqtinstall` differs, per that section):
 
 ```sh
 sudo apt update
 sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
     gstreamer1.0-plugins-ugly gstreamer1.0-libav \
-    qt6-base-dev libcec-dev libp8-platform-dev libyaml-cpp-dev
+    qt6-base-dev qt6-declarative-dev qml6-module-qtquick qt6-tools-dev \
+    libcec-dev libp8-platform-dev libyaml-cpp-dev
 ```
 
 If you're building directly on the Pi instead, installing the full
@@ -366,19 +374,19 @@ resolution and the window/tile size at the time.
 
 ## Supported platforms and versions
 
-| Platform | Versions | Verified in this project's own development |
+| Platform | Versions | Verified |
 |---|---|---|
-| macOS | Whatever your installed Qt 6.8+ supports as a minimum (Qt 6.8 itself requires macOS 12 Monterey or later) | Yes — built and run extensively on macOS (arm64) against a real 7-camera RTSP setup |
-| Linux desktop | Debian 12 (Bookworm) / Ubuntu 22.04 (Jammy) or newer, or any distribution providing Qt 6.8+ and a reasonably current GStreamer 1.x (nothing exotic is used; this project's own testing used 1.28.6 via Homebrew) — note that neither Debian 12 nor Ubuntu 22.04/24.04's own apt packages actually reach Qt 6.8 yet, so a non-apt Qt (the official installer, `aqtinstall`, or building Qt from source) is needed there; see *Building for Linux desktop* below | No — designed to share the exact same code path as macOS (no CEC, same QPA auto-detection), but not run on a Linux desktop specifically in this environment |
-| Raspberry Pi | Raspberry Pi 5, Raspberry Pi OS 64-bit (Bookworm-based) | No — no Raspberry Pi hardware was available; see *Known limitations* |
+| macOS | Whatever your installed Qt 6.8+ supports as a minimum (Qt 6.8 itself requires macOS 12 Monterey or later) | Yes — local development (arm64, against a real 7-camera RTSP setup) and CI (macos-15, macos-26, both arm64: build, ctest, functional RTSP smoke test) |
+| Linux desktop | Ubuntu 26.04, either architecture — the only Linux version this project actually tests anywhere; other distributions/versions providing Qt 6.8+ and a reasonably current GStreamer 1.x will likely also work (nothing exotic is used), but aren't verified, so aren't listed as supported | Yes — CI (ubuntu-26.04, amd64 and arm64: build, ctest, functional RTSP smoke test) |
+| Raspberry Pi 5 | Either Raspberry Pi OS 64-bit (Bookworm-based) — this project's originally intended target per its spec — or Ubuntu 26.04 (arm64); see *Building for Raspberry Pi* for both | Partially — CI verifies the same OS/architecture/CEC-enabled build+test+smoke-test path as the Ubuntu 26.04 option, on a generic arm64 runner rather than real Raspberry Pi hardware. Real hardware and Raspberry Pi OS specifically remain unverified anywhere, locally or in CI — see *Known limitations* |
 
 ## Dependencies
 
-| Component | Purpose | macOS (Homebrew) | Debian/Raspberry Pi OS (apt) |
+| Component | Purpose | macOS (Homebrew) | Debian/Ubuntu (apt) |
 |---|---|---|---|
 | CMake ≥ 3.21 | Build | `brew install cmake` | `apt install cmake` |
 | Ninja | Build | `brew install ninja` | `apt install ninja-build` |
-| Qt 6.8+ (Core, Quick, Qml, Test) | GUI | `brew install qt` | Not available from apt on Debian 12/Ubuntu 22.04/24.04 (their Qt6 packages are too old); use the [Qt online installer](https://www.qt.io/download-qt-installer-oss) or [`aqtinstall`](https://github.com/miurahr/aqtinstall) instead |
+| Qt 6.8+ (Core, Quick, Qml, Test) | GUI | `brew install qt` | `apt install qt6-base-dev qt6-declarative-dev qml6-module-qtquick qt6-tools-dev` on Ubuntu 26.04 (ships 6.10.2). Older Debian/Ubuntu releases and Raspberry Pi OS Bookworm ship older Qt6, below this project's 6.8+ requirement; use the [Qt online installer](https://www.qt.io/download-qt-installer-oss) or [`aqtinstall`](https://github.com/miurahr/aqtinstall) there instead |
 | GStreamer 1.x (core + app + video + audio + sdp + good/bad/ugly/libav plugins) | RTSP/video/audio | `brew install gstreamer` | `apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav` |
 | yaml-cpp | Config parsing | `brew install yaml-cpp` | `apt install libyaml-cpp-dev` |
 | libCEC | HDMI-CEC (Raspberry Pi only) | `brew install libcec` (only if you want to build/test the real adapter on desktop) | `apt install libcec-dev libp8-platform-dev` |
@@ -403,16 +411,32 @@ The resulting binary is `build/qqcs`; the two manual smoke-test tools
 
 ## Building for Linux desktop
 
-apt's own Qt6 packages are too old on every currently-supported Debian/
-Ubuntu release (Ubuntu 22.04 ships Qt 6.2.4, 24.04 ships 6.4.2; Debian
-12 is in the same range) — below this project's Qt 6.8+ requirement.
-Install everything else from apt, but get Qt itself from
-[`aqtinstall`](https://github.com/miurahr/aqtinstall) (a thin wrapper
-around Qt's own official prebuilt packages) or the
-[Qt online installer](https://www.qt.io/download-qt-installer-oss):
+This is only tested against **Ubuntu 26.04**, whose own Qt6 apt
+packages (6.10.2) already clear this project's 6.8+ requirement, so
+everything comes straight from apt:
 
 ```sh
 sudo apt update
+sudo apt install cmake ninja-build \
+    qt6-base-dev qt6-declarative-dev qml6-module-qtquick qt6-tools-dev \
+    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+    gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav libyaml-cpp-dev pkg-config
+
+cmake -S . -B build -G Ninja
+cmake --build build
+```
+
+On an older Debian/Ubuntu release, or any other distribution whose own
+Qt6 packages fall short of 6.8+, get Qt from
+[`aqtinstall`](https://github.com/miurahr/aqtinstall) (a thin wrapper
+around Qt's own official prebuilt packages) or the
+[Qt online installer](https://www.qt.io/download-qt-installer-oss)
+instead — untested here, but the same mechanism *Building for
+Raspberry Pi* below uses and describes in more detail:
+
+```sh
 sudo apt install cmake ninja-build libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
@@ -425,25 +449,46 @@ cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=~/Qt/6.8.1/gcc_64
 cmake --build build
 ```
 
-(QtQuick/QtQml is part of the base install here, not a separate
-`-m` module to request.)
-
 HDMI-CEC is off by default on non-ARM Linux; add `-DQQCS_ENABLE_CEC=ON`
-if you've also installed `libcec-dev` and want to build/test the real
-adapter (see the CMake option note under *Building for Raspberry Pi*
-below).
+if you've also installed `libcec-dev libp8-platform-dev` and want to
+build/test the real adapter (see the CMake option note under *Building
+for Raspberry Pi* below).
 
 ## Building for Raspberry Pi
 
 ### Directly on the Pi (recommended, simplest)
 
 This is by far the most reliable approach — it needs no cross-compiler,
-sysroot, or multiarch setup, just the same apt-vs-aqtinstall split as
-the Linux desktop build above (Raspberry Pi OS's apt Qt6 packages are
-just as far below 6.8 as Debian/Ubuntu's are), run on the Pi itself.
-`aqtinstall` has an arm64-native package set (host `linux_arm64`) for
-exactly this case — official prebuilt Qt binaries that run directly on
-the Pi's own aarch64 Raspberry Pi OS, no compiling Qt from source:
+sysroot, or multiarch setup, run on the Pi itself. Which exact steps
+you need depends on which OS you flashed:
+
+**On Ubuntu 26.04** — the OS/architecture this project's CI actually
+builds and tests against (on a generic arm64 runner, not real
+Raspberry Pi hardware): its own Qt6 apt packages (6.10.2) already
+clear this project's 6.8+ requirement, so this is a single step,
+identical in shape to the Linux desktop build above:
+
+```sh
+sudo apt update
+sudo apt install cmake ninja-build \
+    qt6-base-dev qt6-declarative-dev qml6-module-qtquick qt6-tools-dev \
+    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+    gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav libyaml-cpp-dev libcec-dev libp8-platform-dev pkg-config
+
+cmake -S . -B build -G Ninja -DQQCS_ENABLE_CEC=ON
+cmake --build build
+```
+
+**On Raspberry Pi OS** (Bookworm-based) — this project's originally
+intended target per its spec, but not independently verified anywhere,
+locally or in CI: its own Qt6 apt packages are just as far below 6.8
+as Debian/Ubuntu 22.04/24.04's are, so Qt needs to come from
+elsewhere. `aqtinstall` has an arm64-native package set (host
+`linux_arm64`) for exactly this case — official prebuilt Qt binaries
+that run directly on the Pi's own aarch64 OS, no compiling Qt from
+source:
 
 ```sh
 sudo apt update
@@ -455,16 +500,17 @@ sudo apt install cmake ninja-build libgstreamer1.0-dev libgstreamer-plugins-base
 pip install --user aqtinstall
 python3 -m aqt install-qt linux_arm64 desktop 6.8.1 linux_gcc_arm64 -O ~/Qt
 
-cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=~/Qt/6.8.1/gcc_arm64
+cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=~/Qt/6.8.1/gcc_arm64 -DQQCS_ENABLE_CEC=ON
 cmake --build build
 ```
 
-HDMI-CEC support (`QQCS_ENABLE_CEC`) defaults to **on** here, since
-CMake detects the aarch64/Linux combination automatically. The
-trade-off is build time: compiling on the Pi itself, rather than on a
-faster machine, is noticeably slower — expect it to take a while (Qt
-itself no longer needs compiling here, only qqcs's own, much smaller,
-source tree).
+Either way, HDMI-CEC support (`QQCS_ENABLE_CEC`) defaults to **on**
+here regardless of the explicit flag above, since CMake detects the
+aarch64/Linux combination automatically. The trade-off of building
+directly on the Pi either way is build time: compiling on the Pi
+itself, rather than on a faster machine, is noticeably slower — expect
+it to take a while (Qt itself doesn't need compiling in either case
+above, only qqcs's own, much smaller, source tree).
 
 ### Cross-compiling from a Linux host (advanced, faster)
 
@@ -637,15 +683,19 @@ QQCS_DEBUG_SCREENSHOT=/tmp/qqcs_frame.png QQCS_DEBUG_QUIT_AFTER_MS=6000 \
 ## Known limitations of this first version
 
 - Real Raspberry Pi 5 hardware, a physical HDMI-CEC remote, and
-  Raspberry Pi OS's apt-packaged dependencies were not available to
-  verify against during development — only the underlying libraries and
-  logic could be checked (e.g. the real libCEC adapter was compiled and
-  exercised against Homebrew's libcec on macOS, confirming the
-  graceful-no-adapter-found path, but not against actual CEC hardware).
-  The cross-compilation recipe above is likewise unverified end-to-end.
-- Linux desktop was not run in this project's own development
-  environment (only macOS); it's expected to work identically to macOS
-  (same code path, no CEC), but hasn't been exercised directly.
+  Raspberry Pi OS's apt-packaged dependencies remain unavailable to
+  verify against — CI builds and tests the arm64+CEC-enabled code path
+  (Ubuntu 26.04, arm64), but on a generic cloud runner, not real
+  Raspberry Pi hardware, and not Raspberry Pi OS specifically. The real
+  libCEC adapter has only ever been exercised against Homebrew's libcec
+  on macOS and against a plain arm64 Linux runner in CI, confirming the
+  graceful-no-adapter-found path in both cases, but never against
+  actual CEC hardware. The cross-compilation recipe above is likewise
+  unverified end-to-end.
+- Linux desktop is now built and tested in CI (Ubuntu 26.04, amd64 and
+  arm64: build, ctest, functional RTSP smoke test), but not against a
+  real physical machine or a real multi-camera RTSP setup the way
+  macOS has been.
 - Per SPEC §37, intentionally out of scope for this version: a
   camera-configuration GUI, PTZ control, recording/playback, motion
   detection, AI/object detection, cloud integration, a mobile app, a web
