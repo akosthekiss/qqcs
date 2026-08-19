@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # to create/upload a GitHub Release on a tag push
+
+jobs:
+  package:
+    name: Package .deb (Ubuntu 26.04, ${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Same OS/arch/cec split as ci.yml's linux job -- kept as a
+          # separate workflow (rather than folded into ci.yml) so every
+          # ordinary push/PR doesn't pay for a packaging step it doesn't
+          # need.
+          - os: ubuntu-26.04
+            arch: amd64
+            cec: false
+          - os: ubuntu-26.04-arm
+            arch: arm64
+            cec: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine package version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+              echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+              echo "version=0.0.0+$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update apt package lists
+        run: sudo apt-get update
+
+      # Kept in sync by hand with ci.yml's linux job -- see this project's
+      # README.md ("Building for Raspberry Pi") for the from-scratch,
+      # non-CI version of this same list. dpkg-dev provides dpkg-shlibdeps,
+      # used below by cpack to compute the package's Depends:.
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y --no-install-recommends build-essential chrpath dpkg-dev cmake ninja-build \
+              qt6-base-dev qt6-declarative-dev qml6-module-qtquick qt6-tools-dev \
+              libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+              gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+              gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
+              gstreamer1.0-libav libyaml-cpp-dev pkg-config
+
+      - name: Install libCEC dependencies
+        if: matrix.cec
+        run: sudo apt-get install -y --no-install-recommends libcec-dev libp8-platform-dev
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+              -DCMAKE_INSTALL_PREFIX=/usr \
+              -DQQCS_VERSION=${{ steps.version.outputs.version }} \
+              ${{ matrix.cec && '-DQQCS_ENABLE_CEC=ON' || '' }}
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Package
+        run: cd build && cpack -G DEB
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqcs-deb-${{ matrix.arch }}
+          path: build/*.deb
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: qqcs-deb-*
+          merge-multiple: true
+          path: dist
+
+      - name: Create/update the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" dist/*.deb \
+              --repo "${{ github.repository }}" \
+              --title "${{ github.ref_name }}" \
+              --generate-notes

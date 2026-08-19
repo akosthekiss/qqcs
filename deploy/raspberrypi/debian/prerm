@@ -1,0 +1,16 @@
+#!/bin/sh
+# prerm for the qqcs-raspberrypi package: stop the service before its
+# unit file is removed, so nothing is left running against a deleted
+# ExecStart binary/unit.
+
+set -e
+
+case "$1" in
+    remove|deconfigure)
+        if [ -d /run/systemd/system ]; then
+            systemctl stop qqcs.service >/dev/null 2>&1 || true
+        fi
+        ;;
+esac
+
+exit 0

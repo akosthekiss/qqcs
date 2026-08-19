@@ -5,8 +5,16 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
+# Overridable at configure time (-DQQCS_VERSION=1.2.3) so CI can stamp a
+# release build with the version derived from the pushed git tag, without
+# needing a source-code edit/commit per release. "0.0.0" is a deliberately
+# obvious non-release placeholder for ordinary from-source/desktop builds.
+if (NOT DEFINED QQCS_VERSION)
+    set(QQCS_VERSION "0.0.0")
+endif()
+
 cmake_minimum_required(VERSION 3.21)
-project(qqcs LANGUAGES CXX)
+project(qqcs VERSION ${QQCS_VERSION} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -82,9 +90,96 @@ target_link_libraries(qqcs PRIVATE
 )
 
 include(GNUInstallDirs)
-install(TARGETS qqcs RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS qqcs RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime)
+
+# "raspberrypi" component: everything needed for kiosk/appliance
+# deployment (systemd unit + config templates) on top of the plain
+# "runtime" component's binary. Desktop Linux packaging only ever needs
+# "runtime" -- there is no desktop equivalent of an always-on systemd
+# service or a KMS output config, per SPEC's desktop/keyboard-and-mouse
+# use case (see README's "Building for Linux desktop" vs "Deploying to
+# a Raspberry Pi"). Gated on Linux since systemd units/`/etc` layout
+# make no sense on macOS.
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    install(FILES deploy/raspberrypi/qqcs.service
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system
+        COMPONENT raspberrypi)
+    # The live, admin-editable KMS config -- shipped as a real dpkg
+    # conffile (see CPACK_DEBIAN_RASPBERRYPI_PACKAGE_CONFFILES below)
+    # because, per real Raspberry Pi 5 testing, the shipped default
+    # already works as-is; a second, pristine .example copy is kept
+    # alongside it purely as a restore/reference point.
+    install(FILES deploy/raspberrypi/kms.json.example
+        DESTINATION /etc/qqcs
+        RENAME kms.json
+        COMPONENT raspberrypi)
+    install(FILES deploy/raspberrypi/kms.json.example
+        DESTINATION /etc/qqcs
+        COMPONENT raspberrypi)
+    # config.yaml, by contrast, is deliberately NEVER installed as a
+    # live file -- there is no valid default camera list, so shipping
+    # one that merely looks plausible would be worse than not shipping
+    # one at all. Only the .example ever gets installed; postinst
+    # explains the rest (see deploy/raspberrypi/debian/postinst).
+    install(FILES config.example.yaml
+        DESTINATION /etc/qqcs
+        RENAME config.yaml.example
+        COMPONENT raspberrypi)
+endif()
 
 enable_testing()
 add_subdirectory(tests)
 add_subdirectory(tools/smoke_single_stream)
 add_subdirectory(tools/smoke_multi_stream)
+
+# --- Packaging (CPack, Debian only for now) -------------------------------
+#
+# Two components -> two independent .debs from one build:
+#   qqcs              -- just the binary (desktop Linux: user brings their
+#                         own config.yaml and starts it by hand, no systemd
+#                         unit or /etc/qqcs at all).
+#   qqcs-raspberrypi   -- depends on qqcs; adds the systemd unit and the
+#                         /etc/qqcs config templates/live KMS default for
+#                         appliance-style deployment.
+set(CPACK_PACKAGE_NAME "qqcs")
+set(CPACK_PACKAGE_VENDOR "Akos Kiss")
+set(CPACK_PACKAGE_CONTACT "Akos Kiss <akiss@inf.u-szeged.hu>")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/akosthekiss/qqcs")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Qt Quick Camera Station -- RTSP security camera monitor")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.md")
+
+set(CPACK_DEB_COMPONENT_INSTALL ON)
+set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT") # <package>_<version>_<arch>.deb
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON) # auto-detect Qt6/GStreamer/libCEC Depends:
+set(CPACK_DEBIAN_PACKAGE_SECTION "video")
+set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+
+set(CPACK_DEBIAN_RUNTIME_PACKAGE_NAME "qqcs")
+
+set(CPACK_DEBIAN_RASPBERRYPI_PACKAGE_NAME "qqcs-raspberrypi")
+# PROJECT_VERSION, not CPACK_PACKAGE_VERSION: the latter is only derived by
+# the CPack module itself once include(CPack) below actually runs, so it's
+# still unset/empty here.
+set(CPACK_DEBIAN_RASPBERRYPI_PACKAGE_DEPENDS "qqcs (= ${PROJECT_VERSION})")
+set(CPACK_DEBIAN_RASPBERRYPI_PACKAGE_CONFFILES "/etc/qqcs/kms.json")
+set(CPACK_DEBIAN_RASPBERRYPI_PACKAGE_CONTROL_EXTRA
+    "${CMAKE_SOURCE_DIR}/deploy/raspberrypi/debian/postinst"
+    "${CMAKE_SOURCE_DIR}/deploy/raspberrypi/debian/prerm"
+    "${CMAKE_SOURCE_DIR}/deploy/raspberrypi/debian/postrm"
+)
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(CPACK_GENERATOR "DEB")
+endif()
+# Default component selection mirrors QQCS_ENABLE_CEC's own default further
+# up: arm64/Raspberry-relevant Linux builds package both components, other
+# platforms (desktop Linux amd64, macOS) only the plain binary -- override
+# with `cpack -D CPACK_COMPONENTS_ALL="runtime"` if a Pi-style package is
+# ever wanted from a non-arm64 Linux build, or vice versa.
+if (QQCS_IS_RPI)
+    set(CPACK_COMPONENTS_ALL runtime raspberrypi)
+else()
+    set(CPACK_COMPONENTS_ALL runtime)
+endif()
+
+include(CPack)

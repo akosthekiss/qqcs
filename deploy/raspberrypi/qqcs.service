@@ -9,6 +9,13 @@ Wants=graphical.target
 # current releases (confirmed on Ubuntu 26.04).
 StartLimitIntervalSec=60
 StartLimitBurst=5
+# The packaged config.yaml is only ever an .example -- there is no valid
+# default (the camera list is inherently site-specific, and an empty one
+# fails validation). Rather than start, fail validation, and crash-loop
+# (until StartLimitBurst above kicks in) on a fresh install, skip startup
+# entirely -- inertly, not as a failure -- until the admin has copied and
+# edited /etc/qqcs/config.yaml.example into place.
+ConditionPathExists=/etc/qqcs/config.yaml
 
 [Service]
 Type=simple

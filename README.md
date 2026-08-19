@@ -174,6 +174,11 @@ documentation, per the spec's own allowance for exactly this case.
 
 ## Deploying to a Raspberry Pi
 
+This section builds `qqcs` from source directly on the Pi. If you'd
+rather skip building entirely — including every future update — see
+*Installing a prebuilt package* further down, which covers the same
+`/etc/qqcs`/systemd setup via a `.deb` instead.
+
 ### Hardware setup
 
 - Raspberry Pi 5 board, with its official 27 W USB-C power supply (Pi 5
@@ -406,6 +411,67 @@ see stretching, it's a bug — please report it with the camera's native
 resolution and the window/tile size at the time.
 
 ---
+
+# Installing a prebuilt package
+
+If you don't want to build from source at all — and in particular, if
+you don't want to wait for a from-scratch compile on a Raspberry Pi's
+own CPU every time — a tagged push to this repository's `main` branch
+triggers `release.yml`, which builds and publishes `.deb` packages to
+this repository's [Releases page](https://github.com/akosthekiss/qqcs/releases),
+built and tested on the exact same Ubuntu 26.04 (amd64/arm64) targets
+described throughout this document. Once installed this way, updating
+to a new version never requires a rebuild on the target machine again
+— just `apt install` the next release's `.deb`.
+
+Two packages come out of each release, matching the two deployment
+scenarios described above:
+
+**`qqcs_<version>_<arch>.deb`** — just the binary, for desktop Linux:
+
+```sh
+sudo apt install ./qqcs_<version>_amd64.deb   # or _arm64.deb
+```
+
+Bring your own `config.yaml` wherever you like and start it by hand —
+see *Running on desktop*, above.
+
+**`qqcs-raspberrypi_<version>_arm64.deb`** — for Raspberry Pi appliance
+deployment. It depends on (and pulls in) the plain `qqcs` package
+above, and additionally installs the systemd unit and `/etc/qqcs`
+config templates described under *Deploying to a Raspberry Pi*:
+
+```sh
+sudo apt install ./qqcs-raspberrypi_<version>_arm64.deb
+```
+
+Installing it prints the exact next steps. The service is deliberately
+**not** started automatically — there's no valid default camera list to
+start it with — but it's safe to `systemctl enable` right away even
+before configuring, since the unit's `ConditionPathExists=` inertly
+skips startup (not a crash loop) until `/etc/qqcs/config.yaml` exists:
+
+```
+1. sudo cp /etc/qqcs/config.yaml.example /etc/qqcs/config.yaml
+   sudo nano /etc/qqcs/config.yaml            # add your real cameras
+2. check /etc/qqcs/kms.json against `sudo modetest -M vc4`'s output
+   (the shipped default usually already matches a Raspberry Pi 5)
+3. sudo systemctl enable --now qqcs
+```
+
+Only Ubuntu 26.04 (amd64/arm64) is covered by these packages, matching
+this project's one CI/support baseline throughout this document —
+**Raspberry Pi OS still needs building from source** (see *Building
+for Raspberry Pi* below): a `.deb` built against Ubuntu's own Qt6/
+GStreamer shared libraries won't install cleanly against a different
+distribution's package set.
+
+**Not yet exercised end-to-end on real hardware**: this packaging
+pipeline itself (the CPack/`dpkg-shlibdeps`-generated `Depends:`, the
+postinst user/group creation, the `ConditionPathExists=`-gated startup)
+has only been validated by CI's build step so far, not by an actual
+`apt install` of a real `.deb` on a real Raspberry Pi — treat the first
+real install as the true test of this section, not this description.
 
 # Building from Source
 

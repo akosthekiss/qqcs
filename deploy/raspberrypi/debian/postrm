@@ -1,0 +1,24 @@
+#!/bin/sh
+# postrm for the qqcs-raspberrypi package.
+#
+# The admin's real config.yaml under /etc/qqcs is never a dpkg conffile
+# (see CMakeLists.txt's comment on why config.yaml is only ever shipped
+# as .example), so dpkg won't remove it on its own -- deliberately left
+# in place even on purge, exactly like /etc/qqcs/kms.json if the admin
+# edited it away from the shipped default. Only the system user/group
+# this package itself created in postinst are cleaned up, and only on
+# purge (not on a plain remove, which may be a prelude to reinstalling).
+
+set -e
+
+case "$1" in
+    purge)
+        deluser --system qqcs >/dev/null 2>&1 || true
+        ;;
+esac
+
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+
+exit 0

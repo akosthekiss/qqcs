@@ -1,0 +1,50 @@
+#!/bin/sh
+# postinst for the qqcs-raspberrypi package.
+#
+# Only creates the parts that are deterministic and config-independent
+# (system user/group, /etc/qqcs directory). It deliberately does NOT copy
+# config.yaml.example into place as config.yaml, and does NOT enable or
+# start the qqcs.service unit -- there is no valid default camera list
+# (the app itself refuses to start on an empty one), so doing either of
+# those would either silently fail validation or mislead the admin into
+# thinking the appliance is ready when it isn't. qqcs.service's own
+# ConditionPathExists=/etc/qqcs/config.yaml keeps a premature `systemctl
+# enable --now` harmless (inertly skipped) rather than crash-looping.
+
+set -e
+
+case "$1" in
+    configure)
+        if ! getent passwd qqcs >/dev/null; then
+            adduser --system --group --no-create-home \
+                --home /nonexistent --shell /usr/sbin/nologin qqcs
+        fi
+        for grp in video render input; do
+            if getent group "$grp" >/dev/null 2>&1; then
+                adduser qqcs "$grp" >/dev/null 2>&1 || true
+            fi
+        done
+
+        mkdir -p /etc/qqcs
+
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload >/dev/null 2>&1 || true
+        fi
+
+        cat <<'EOM'
+
+qqcs installed, but not started -- it needs a site-specific camera
+configuration first:
+
+  1. sudo cp /etc/qqcs/config.yaml.example /etc/qqcs/config.yaml
+     sudo nano /etc/qqcs/config.yaml        # add your real cameras
+  2. Check /etc/qqcs/kms.json matches your Pi's actual DRM output
+     (sudo modetest -M vc4 to list it) -- the shipped default usually
+     works as-is on a Raspberry Pi 5.
+  3. sudo systemctl enable --now qqcs
+
+EOM
+        ;;
+esac
+
+exit 0
