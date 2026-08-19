@@ -94,6 +94,12 @@ jobs:
       # tree of Recommends (Qt doc/translation/GUI-designer tools,
       # Wayland/PipeWire, TensorFlow-Lite/ONNX runtime, extra codecs,
       # ...) that this headless build+smoke-test never uses.
+      #
+      # No compiler (build-essential) or chrpath here: this runner
+      # image already bundles both. A from-scratch target that doesn't
+      # (e.g. a stock Ubuntu Server image freshly flashed onto a
+      # Raspberry Pi) needs them installed explicitly -- see README.md's
+      # *Building for Raspberry Pi*.
       - name: Install dependencies
         run: |
           sudo apt-get install -y --no-install-recommends cmake ninja-build \

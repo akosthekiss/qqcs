@@ -1,10 +1,14 @@
 [Unit]
 Description=QQCS Security Camera Monitor
-Documentation=https://github.com/<org>/qqcs
+Documentation=https://github.com/akosthekiss/qqcs
 # SPEC §29: must start after the graphical environment is ready, never from
 # .bashrc/an autostart desktop entry.
 After=graphical.target systemd-udev-settle.service
 Wants=graphical.target
+# Belong in [Unit], not [Service] -- systemd rejects them in [Service] on
+# current releases (confirmed on Ubuntu 26.04).
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -21,11 +25,8 @@ Environment=QT_QPA_EGLFS_KMS_CONFIG=/etc/qqcs/kms.json
 Environment=QT_QPA_EGLFS_ALWAYS_SET_MODE=1
 Environment=QQCS_CONFIG=/etc/qqcs/config.yaml
 ExecStart=/usr/bin/qqcs
-WorkingDirectory=/opt/qqcs
 Restart=on-failure
 RestartSec=3
-StartLimitIntervalSec=60
-StartLimitBurst=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=qqcs

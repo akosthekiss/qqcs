@@ -206,7 +206,13 @@ documentation, per the spec's own allowance for exactly this case.
 2. Insert the storage, connect HDMI + network + power, and boot.
 3. Connect over SSH (`ssh <username>@<hostname>.local`, or by IP
    address) or use a directly-attached keyboard, and run through the
-   rest of this section from there.
+   rest of this section from there. `.local` (mDNS) resolution comes
+   preinstalled on Raspberry Pi OS, but **not** on Ubuntu Server — if
+   `<hostname>.local` doesn't resolve from your other machine, either
+   find the Pi's IP address another way (e.g. your router's client
+   list) for this first connection, then
+   `sudo apt install avahi-daemon libnss-mdns` on the Pi itself so
+   `.local` works for subsequent connections too.
 
 ### Software setup
 
@@ -258,13 +264,31 @@ your editor of choice). See *Configuration* above for the file's format.
 Copy and adjust the KMS output configuration:
 
 ```sh
+sudo mkdir -p /etc/qqcs
 sudo cp deploy/raspberrypi/kms.json.example /etc/qqcs/kms.json
 ```
 
 Then edit `/etc/qqcs/kms.json`'s `device`/`outputs.name` fields to match
-your Pi's actual DRM output — check with `modetest -M vc4`, since the
-device path and connector name vary by hardware/kernel revision; this
-repository's defaults are a starting point, not guaranteed values.
+your Pi's actual DRM output — check with `sudo apt install libdrm-tests`
+then `sudo modetest -M vc4` (both the package and `sudo` are required;
+neither is preinstalled/permitted by default), since the device path
+and connector name vary by hardware/kernel revision; this repository's
+defaults are a starting point, not guaranteed values.
+
+### Manual test run (before systemd)
+
+Before wiring `qqcs` into systemd, it's worth starting it by hand once,
+from the Pi's own console (not over SSH — it needs to own the DRM
+master, which an already-running graphical session/other DRM client
+would hold instead):
+
+```sh
+sudo QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_KMS_CONFIG=/etc/qqcs/kms.json /usr/bin/qqcs --config=/etc/qqcs/config.yaml
+```
+
+The environment variables must come **after** `sudo` on the command
+line, not before (`export`ing them first and then plain `sudo qqcs`
+loses them, since `sudo` resets the environment by default).
 
 ### systemd autostart
 
@@ -276,7 +300,8 @@ the lowest-overhead, most kiosk-appropriate setup for an always-on
 single-app device.
 
 ```sh
-sudo useradd --system --groups video,render,input qqcs   # if not already present
+sudo useradd --system --groups video,render,input qqcs || \
+    sudo usermod -aG video,render,input qqcs   # if the qqcs user already exists (e.g. a previous setup attempt)
 sudo cp deploy/raspberrypi/qqcs.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now qqcs.service
@@ -386,8 +411,10 @@ resolution and the window/tile size at the time.
 
 | Component | Purpose | macOS (Homebrew) | Debian/Ubuntu (apt) |
 |---|---|---|---|
+| C/C++ toolchain | Build | Xcode Command Line Tools (`xcode-select --install`; already required by Homebrew itself) | `apt install build-essential` — present by default on GitHub's CI runner images and on Raspberry Pi OS, but **not** on a stock Ubuntu Server image |
 | CMake ≥ 3.21 | Build | `brew install cmake` | `apt install cmake` |
 | Ninja | Build | `brew install ninja` | `apt install ninja-build` |
+| chrpath | Build (RPATH fixup used by Qt6's CMake tooling) | not needed | `apt install chrpath` — same "present on CI/Raspberry Pi OS, not on stock Ubuntu Server" caveat as above; without it, `cmake --build` fails with an RPATH-related Ninja error |
 | Qt 6.8+ (Core, Quick, Qml, Test) | GUI | `brew install qt` | `apt install qt6-base-dev qt6-declarative-dev qml6-module-qtquick qt6-tools-dev` on Ubuntu 26.04 (ships 6.10.2). Older Debian/Ubuntu releases and Raspberry Pi OS Bookworm ship older Qt6, below this project's 6.8+ requirement; use the [Qt online installer](https://www.qt.io/download-qt-installer-oss) or [`aqtinstall`](https://github.com/miurahr/aqtinstall) there instead |
 | GStreamer 1.x (core + app + video + audio + sdp + good/bad/ugly/libav plugins) | RTSP/video/audio | `brew install gstreamer` | `apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav` |
 | yaml-cpp | Config parsing | `brew install yaml-cpp` | `apt install libyaml-cpp-dev` |
@@ -419,7 +446,7 @@ everything comes straight from apt:
 
 ```sh
 sudo apt update
-sudo apt install cmake ninja-build \
+sudo apt install build-essential chrpath cmake ninja-build \
     qt6-base-dev qt6-declarative-dev qml6-module-qtquick qt6-tools-dev \
     libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
@@ -430,6 +457,11 @@ cmake -S . -B build -G Ninja
 cmake --build build
 ```
 
+`build-essential`/`chrpath` are already present on GitHub's CI runner
+images, which is why `ci.yml` doesn't list them explicitly — a stock
+Ubuntu Server image (e.g. freshly flashed onto a Raspberry Pi) has
+neither, so they're spelled out here.
+
 On an older Debian/Ubuntu release, or any other distribution whose own
 Qt6 packages fall short of 6.8+, get Qt from
 [`aqtinstall`](https://github.com/miurahr/aqtinstall) (a thin wrapper
@@ -439,7 +471,7 @@ instead — untested here, but the same mechanism *Building for
 Raspberry Pi* below uses and describes in more detail:
 
 ```sh
-sudo apt install cmake ninja-build libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+sudo apt install build-essential chrpath cmake ninja-build libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
     gstreamer1.0-libav libyaml-cpp-dev pkg-config python3-pip
@@ -472,7 +504,7 @@ identical in shape to the Linux desktop build above:
 
 ```sh
 sudo apt update
-sudo apt install cmake ninja-build \
+sudo apt install build-essential chrpath cmake ninja-build \
     qt6-base-dev qt6-declarative-dev qml6-module-qtquick qt6-tools-dev \
     libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
@@ -482,6 +514,13 @@ sudo apt install cmake ninja-build \
 cmake -S . -B build -G Ninja -DQQCS_ENABLE_CEC=ON
 cmake --build build
 ```
+
+`build-essential`/`chrpath` are present on GitHub's CI runner images
+(which is why `ci.yml` doesn't list them) and on Raspberry Pi OS, but
+**not** on a stock Ubuntu Server image — confirmed by actually flashing
+and building on real Raspberry Pi 5 hardware, where their absence
+first showed up as "no C compiler found" and then a Ninja RPATH error
+respectively.
 
 **On Raspberry Pi OS** (Bookworm-based) — the other documented option,
 not independently verified anywhere, locally or in CI: its own Qt6 apt
@@ -493,7 +532,7 @@ compiling Qt from source:
 
 ```sh
 sudo apt update
-sudo apt install cmake ninja-build libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+sudo apt install build-essential chrpath cmake ninja-build libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
     gstreamer1.0-libav libyaml-cpp-dev libcec-dev libp8-platform-dev pkg-config python3-pip
