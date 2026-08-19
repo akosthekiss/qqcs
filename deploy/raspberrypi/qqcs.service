@@ -23,6 +23,10 @@ SupplementaryGroups=video render input tty
 Environment=QT_QPA_PLATFORM=eglfs
 Environment=QT_QPA_EGLFS_KMS_CONFIG=/etc/qqcs/kms.json
 Environment=QT_QPA_EGLFS_ALWAYS_SET_MODE=1
+# No mouse in normal operation (CEC/remote only) -- eglfs otherwise
+# always composites a virtual cursor on top, with no input device to
+# ever move it away from its startup position.
+Environment=QT_QPA_EGLFS_HIDECURSOR=1
 Environment=QQCS_CONFIG=/etc/qqcs/config.yaml
 ExecStart=/usr/bin/qqcs
 Restart=on-failure

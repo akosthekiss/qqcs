@@ -42,8 +42,16 @@ void NavigationController::handleInputAction(InputAction action)
             enterFullscreenAt(m_focusedMosaicIndex);
         break;
     case InputAction::Back:
-        if (m_viewMode == ViewMode::Fullscreen)
+        // Zoom-aware, same as ResetZoom below: a lone Back press while
+        // zoomed in must reset zoom first and stay in fullscreen, not
+        // drop straight to mosaic (this was CEC-only before, since the
+        // keyboard maps Escape to ResetZoom rather than Back).
+        if (zoom() > 1.0) {
+            setZoomIndex(0); // SPEC §17
+            setPan({ 0, 0 });
+        } else if (m_viewMode == ViewMode::Fullscreen) {
             exitToMosaic();
+        }
         break;
     case InputAction::Up:
     case InputAction::Down:

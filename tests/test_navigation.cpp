@@ -53,6 +53,7 @@ private slots:
     // NavigationController -- zoom/reset (SPEC §14/§17/§18)
     void resetZoom_returnsToOneAndClearsPan();
     void afterZoomReset_leftRightSwitchesCameraAgain();
+    void backWhileZoomed_resetsZoomInsteadOfLeavingFullscreen();
 
     // NavigationController -- shortcuts (SPEC §17/§23, acceptance #22)
     void cameraZeroIsAlwaysShortcutNeverZoomReset();
@@ -210,6 +211,27 @@ void TestNavigation::resetZoom_returnsToOneAndClearsPan()
     nav.handleInputAction(InputAction::ResetZoom);
     QCOMPARE(nav.zoom(), 1.0);
     QCOMPARE(nav.pan(), QPointF(0, 0));
+}
+
+void TestNavigation::backWhileZoomed_resetsZoomInsteadOfLeavingFullscreen()
+{
+    // Regression test: on real hardware, CEC's Back button maps to
+    // InputAction::Back (not ResetZoom, as the keyboard's Escape does),
+    // and used to drop straight to mosaic instead of resetting zoom first.
+    NavigationController nav(tenCameraIds(), 4);
+    nav.setViewportSize(QSizeF(1280, 720));
+    nav.selectMosaicTile(0);
+    nav.handleInputAction(InputAction::ZoomIn);
+    nav.handleInputAction(InputAction::Right); // pan away from (0,0)
+    QVERIFY(nav.zoom() > 1.0);
+
+    nav.handleInputAction(InputAction::Back);
+    QCOMPARE(nav.zoom(), 1.0);
+    QCOMPARE(nav.pan(), QPointF(0, 0));
+    QCOMPARE(nav.viewMode(), NavigationController::ViewMode::Fullscreen);
+
+    nav.handleInputAction(InputAction::Back); // second Back now leaves fullscreen
+    QCOMPARE(nav.viewMode(), NavigationController::ViewMode::Mosaic);
 }
 
 void TestNavigation::afterZoomReset_leftRightSwitchesCameraAgain()

@@ -283,12 +283,15 @@ master, which an already-running graphical session/other DRM client
 would hold instead):
 
 ```sh
-sudo QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_KMS_CONFIG=/etc/qqcs/kms.json /usr/bin/qqcs --config=/etc/qqcs/config.yaml
+sudo QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_KMS_CONFIG=/etc/qqcs/kms.json QT_QPA_EGLFS_HIDECURSOR=1 /usr/bin/qqcs --config=/etc/qqcs/config.yaml
 ```
 
 The environment variables must come **after** `sudo` on the command
 line, not before (`export`ing them first and then plain `sudo qqcs`
 loses them, since `sudo` resets the environment by default).
+`QT_QPA_EGLFS_HIDECURSOR` hides the mouse cursor that `eglfs` otherwise
+always composites on screen even with no mouse ever attached — drop it
+temporarily if you're debugging with a physical mouse plugged in.
 
 ### systemd autostart
 
@@ -382,6 +385,13 @@ not "No HDMI-CEC adapter found". If no adapter is found, check the CEC
 line is enabled on the TV (often called "Anynet+"/"Bravia Sync"/
 "SimpLink"/etc. depending on TV brand) and that the Pi's HDMI cable
 supports CEC (some cheap cables don't wire the CEC pin through).
+
+**Some buttons work over CEC, but the number buttons (0–9) don't.**
+Confirmed on real hardware to be a TV/remote-side limitation, not a bug
+in qqcs: many TVs reserve number buttons for their own channel-input UI
+and never put the press on the CEC bus at all, regardless of client
+software — nothing on the qqcs side can work around this. Digit
+shortcuts still work fine from a keyboard.
 
 **Black screen on the Pi via HDMI, app appears to be running.** Check
 `/etc/qqcs/kms.json`'s `device`/`outputs.name` actually match your
