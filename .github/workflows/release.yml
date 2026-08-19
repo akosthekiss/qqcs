@@ -33,6 +33,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # git describe/rev-list --count below need full history + tags
 
       - name: Determine package version
         id: version
@@ -40,7 +42,20 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
               echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
           else
-              echo "version=0.0.0+$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+              # Same scheme Git uses to version itself between tags (see
+              # its own GIT-VERSION-GEN): git describe's native
+              # "<last-tag>-<N>-g<sha>" (no --long, so an exact tag match
+              # -- e.g. a manual re-run right on a tagged commit -- comes
+              # out as just the plain tag, with no suffix at all), dashes
+              # turned into dots since dpkg's upstream_version syntax
+              # reserves dashes for -<debian_revision>. More useful than a
+              # bare hash: it also says how many commits past the last
+              # real release this build is. Falls back to a 0.0.0 base +
+              # total commit count if this repo has no "v*" tags at all
+              # yet (true as of this writing).
+              described=$(git describe --tags --match 'v*' 2>/dev/null) \
+                  || described="v0.0.0-$(git rev-list --count HEAD)-g$(git rev-parse --short HEAD)"
+              echo "version=$(echo "$described" | sed -E 's/^v//; s/-/./g')" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Update apt package lists

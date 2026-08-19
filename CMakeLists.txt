@@ -5,16 +5,29 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-# Overridable at configure time (-DQQCS_VERSION=1.2.3) so CI can stamp a
-# release build with the version derived from the pushed git tag, without
-# needing a source-code edit/commit per release. "0.0.0" is a deliberately
-# obvious non-release placeholder for ordinary from-source/desktop builds.
+# Overridable at configure time (-DQQCS_VERSION=1.2.3, or
+# 1.2.3.5.g1a2b3c4 for a tag-less manual release build -- see
+# release.yml) so CI can stamp a release build with the version derived
+# from the pushed git tag, without needing a source-code edit/commit per
+# release. "0.0.0" is a deliberately obvious non-release placeholder for
+# ordinary from-source/desktop builds.
+#
+# QQCS_VERSION itself becomes the actual package version (CPACK_PACKAGE_
+# VERSION, set explicitly further down) -- but project(VERSION ...) only
+# accepts strict numeric dotted components (max 4), so the "N.g<sha>"
+# suffix above would make it fail outright. QQCS_CMAKE_VERSION strips any
+# such suffix just for project()'s sake; nothing here actually reads
+# PROJECT_VERSION for packaging purposes.
 if (NOT DEFINED QQCS_VERSION)
     set(QQCS_VERSION "0.0.0")
 endif()
+string(REGEX MATCH "^[0-9]+(\\.[0-9]+){0,3}" QQCS_CMAKE_VERSION "${QQCS_VERSION}")
+if (NOT QQCS_CMAKE_VERSION)
+    set(QQCS_CMAKE_VERSION "0.0.0")
+endif()
 
 cmake_minimum_required(VERSION 3.21)
-project(qqcs VERSION ${QQCS_VERSION} LANGUAGES CXX)
+project(qqcs VERSION ${QQCS_CMAKE_VERSION} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -147,6 +160,11 @@ set(CPACK_PACKAGE_CONTACT "Akos Kiss <akiss@inf.u-szeged.hu>")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/akosthekiss/qqcs")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Qt Quick Camera Station -- RTSP security camera monitor")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.md")
+# Set explicitly, from the real QQCS_VERSION (not the stripped
+# QQCS_CMAKE_VERSION used for project() above) -- otherwise the CPack
+# module would derive this from PROJECT_VERSION_MAJOR/MINOR/PATCH once
+# include(CPack) runs, losing any "N.g<sha>" suffix.
+set(CPACK_PACKAGE_VERSION "${QQCS_VERSION}")
 
 set(CPACK_DEB_COMPONENT_INSTALL ON)
 set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT") # <package>_<version>_<arch>.deb
@@ -157,10 +175,7 @@ set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_RUNTIME_PACKAGE_NAME "qqcs")
 
 set(CPACK_DEBIAN_RASPBERRYPI_PACKAGE_NAME "qqcs-raspberrypi")
-# PROJECT_VERSION, not CPACK_PACKAGE_VERSION: the latter is only derived by
-# the CPack module itself once include(CPack) below actually runs, so it's
-# still unset/empty here.
-set(CPACK_DEBIAN_RASPBERRYPI_PACKAGE_DEPENDS "qqcs (= ${PROJECT_VERSION})")
+set(CPACK_DEBIAN_RASPBERRYPI_PACKAGE_DEPENDS "qqcs (= ${CPACK_PACKAGE_VERSION})")
 set(CPACK_DEBIAN_RASPBERRYPI_PACKAGE_CONFFILES "/etc/qqcs/kms.json")
 set(CPACK_DEBIAN_RASPBERRYPI_PACKAGE_CONTROL_EXTRA
     "${CMAKE_SOURCE_DIR}/deploy/raspberrypi/debian/postinst"
