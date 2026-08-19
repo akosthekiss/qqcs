@@ -53,6 +53,32 @@ bool isDecodableAudioCodec(const QString &encodingName)
     return kSupported.contains(encodingName.toUpper());
 }
 
+// autoaudiosink silently constructs a plain fakesink as a last resort when
+// none of its real candidates (alsasink/pulsesink/pipewiresink/...) can
+// actually be opened (e.g. no usable ALSA device on a headless Pi) -- the
+// pipeline then plays "successfully" into nowhere, with no
+// GST_MESSAGE_ERROR on the bus at all. GstAutoDetect elements decide on
+// and add their real child synchronously during their NULL->READY
+// transition (before any READY->PAUSED preroll wait that could make the
+// call return GST_STATE_CHANGE_ASYNC), so the child is already present as
+// soon as gst_element_sync_state_with_parent() returns, even if that call
+// itself reports ASYNC.
+bool audioSinkFellBackToFakesink(GstElement *autoAudioSink)
+{
+    GstIterator *it = gst_bin_iterate_elements(GST_BIN(autoAudioSink));
+    GValue value = G_VALUE_INIT;
+    bool isFakesink = false;
+    if (gst_iterator_next(it, &value) == GST_ITERATOR_OK) {
+        if (GstElement *child = GST_ELEMENT(g_value_get_object(&value))) {
+            GstElementFactory *factory = gst_element_get_factory(child);
+            isFakesink = factory && g_str_equal(GST_OBJECT_NAME(factory), "fakesink");
+        }
+        g_value_unset(&value);
+    }
+    gst_iterator_free(it);
+    return isFakesink;
+}
+
 // Free functions, not class members: GstPadProbeCallback is a strictly-
 // typed C function pointer (gst_pad_add_probe calls through it directly,
 // unlike GLib signals' G_CALLBACK blind-cast), so keeping GstPadProbeInfo
@@ -491,6 +517,17 @@ void RtspStreamPipeline::buildAudioBranch()
     m_audioElements = { queue, decodebin, convert, resample, sink };
     m_audioElementSet = { queue, decodebin, convert, resample, sink };
     m_audioPlaybackError = false;
+
+    // See audioSinkFellBackToFakesink()'s comment: this is the one audio-
+    // branch failure mode that never raises a bus error on its own, so it
+    // needs its own explicit check right here instead.
+    if (audioSinkFellBackToFakesink(sink)) {
+        qCWarning(lcCamera).noquote() << m_rtspUrl
+                                       << "audio playback error: no usable audio output device (autoaudiosink "
+                                          "fell back to fakesink)";
+        m_audioPlaybackError = true;
+        teardownAudioBranch();
+    }
 }
 
 void RtspStreamPipeline::teardownAudioBranch()
