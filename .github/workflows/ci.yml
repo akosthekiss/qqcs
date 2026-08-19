@@ -25,7 +25,7 @@ jobs:
             version: "26"
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Mirrors README.md's "Building for macOS" recipe exactly, so this
       # job is a direct check that those documented steps still work.
@@ -49,7 +49,7 @@ jobs:
 
       - name: Upload smoke-test screenshot
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: qqcs-screenshot-${{ matrix.os }}
           path: /tmp/qqcs-ci/screenshot.png
@@ -80,7 +80,7 @@ jobs:
             cec: true
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Only ubuntu-26.04 is covered (not older LTS releases): its apt
       # Qt6 (6.10.2) already clears this project's 6.8+ requirement, so
@@ -130,7 +130,7 @@ jobs:
 
       - name: Upload smoke-test screenshot
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: qqcs-screenshot-${{ matrix.os }}
           path: /tmp/qqcs-ci/screenshot.png
