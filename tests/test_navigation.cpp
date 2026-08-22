@@ -41,6 +41,9 @@ private slots:
     void zoomedPan_centerPivotScalesTowardCenter();
     void zoomedPan_offCenterPivotKeepsContentPointFixed();
     void clampPan_forcesZeroAtZoomOne();
+    void clampPan_noPanBelowLetterboxRevealThreshold();
+    void clampPan_allowsPanOncePastLetterboxRevealThreshold();
+    void clampPan_matchesOriginalFormulaWhenContentFillsViewport();
 
     // NavigationController -- mosaic navigation (SPEC §10)
     void mosaic_rightAndLeftAreLinearNotRowCyclic();
@@ -51,6 +54,8 @@ private slots:
     void exitToMosaic_focusFollowsFullscreenCameraSwitch();
     void fullscreen_leftRightPanAtZoomAboveOne();
     void panStepScalesWithZoomLevel();
+    void controllerPanStaysZeroBelowLetterboxRevealThreshold();
+    void controllerPanAllowedOncePastLetterboxRevealThreshold();
 
     // NavigationController -- zoom/reset (SPEC §14/§17/§18)
     void resetZoom_returnsToOneAndClearsPan();
@@ -138,8 +143,44 @@ void TestNavigation::zoomedPan_offCenterPivotKeepsContentPointFixed()
 
 void TestNavigation::clampPan_forcesZeroAtZoomOne()
 {
-    const QPointF result = NavMath::clampPan(QPointF(500, 500), 1.0, QSizeF(1280, 720));
+    const QSizeF viewport(1280, 720);
+    const QPointF result = NavMath::clampPan(QPointF(500, 500), 1.0, viewport, viewport);
     QCOMPARE(result, QPointF(0, 0));
+}
+
+void TestNavigation::clampPan_noPanBelowLetterboxRevealThreshold()
+{
+    // SPEC §34 "ZOOM/COVER": a 960-wide pillarboxed content in a
+    // 1280-wide viewport only reaches full viewport width once
+    // zoom >= 1280/960 (~1.333x) -- below that, no pan position can avoid
+    // showing some bar, so max pan in that axis must be exactly 0.
+    const QSizeF viewport(1280, 720);
+    const QSizeF content(960, 720); // pillarboxed: narrower width, full height
+    const QPointF result = NavMath::clampPan(QPointF(500, 0), 1.2, content, viewport);
+    QCOMPARE(result.x(), 0.0);
+}
+
+void TestNavigation::clampPan_allowsPanOncePastLetterboxRevealThreshold()
+{
+    const QSizeF viewport(1280, 720);
+    const QSizeF content(960, 720);
+    const qreal zoom = 1280.0 / 960.0 + 0.5; // comfortably past the ~1.333x threshold
+    const QPointF result = NavMath::clampPan(QPointF(10000, 0), zoom, content, viewport);
+    const qreal expectedMaxX = (content.width() * zoom - viewport.width()) / 2.0;
+    QVERIFY(result.x() > 0.0);
+    QCOMPARE(result.x(), expectedMaxX);
+}
+
+void TestNavigation::clampPan_matchesOriginalFormulaWhenContentFillsViewport()
+{
+    // When contentSize == viewport (Cover/Fill, or Contain with matching
+    // aspect ratios), this must reduce exactly to the pre-§34 formula:
+    // viewport * (zoom-1) / 2.
+    const QSizeF viewport(1280, 720);
+    const qreal zoom = 2.5;
+    const QPointF result = NavMath::clampPan(QPointF(10000, 10000), zoom, viewport, viewport);
+    QCOMPARE(result.x(), viewport.width() * (zoom - 1.0) / 2.0);
+    QCOMPARE(result.y(), viewport.height() * (zoom - 1.0) / 2.0);
 }
 
 void TestNavigation::mosaic_rightAndLeftAreLinearNotRowCyclic()
@@ -244,6 +285,37 @@ void TestNavigation::panStepScalesWithZoomLevel()
 
     QVERIFY(stepAtLowZoom > 0.0);
     QVERIFY(stepAtHighZoom > stepAtLowZoom);
+}
+
+void TestNavigation::controllerPanStaysZeroBelowLetterboxRevealThreshold()
+{
+    // End-to-end SPEC §34 check through the controller: setContentSize()
+    // with a pillarboxed (narrower-than-viewport) content size must make
+    // panning inert below the ~1.333x reveal threshold (1280/960), even
+    // though zoom > 1.0. Custom zoom steps needed since the default list
+    // has nothing between 1.0 and that threshold.
+    NavigationController nav(tenCameraIds(), 4, { 1.0, 1.2, 4.0 });
+    nav.setViewportSize(QSizeF(1280, 720));
+    nav.setContentSize(QSizeF(960, 720)); // narrower than viewport -> pillarboxed
+    nav.selectMosaicTile(4);
+
+    nav.handleInputAction(InputAction::ZoomIn); // zoom 1.2 -- below the ~1.333x threshold
+    QCOMPARE(nav.zoom(), 1.2);
+    nav.handleInputAction(InputAction::Right);
+    QCOMPARE(nav.pan().x(), 0.0); // below threshold -> no pan can avoid the bar, so none is allowed
+}
+
+void TestNavigation::controllerPanAllowedOncePastLetterboxRevealThreshold()
+{
+    NavigationController nav(tenCameraIds(), 4);
+    nav.setViewportSize(QSizeF(1280, 720));
+    nav.setContentSize(QSizeF(960, 720)); // narrower than viewport -> pillarboxed
+    nav.selectMosaicTile(4);
+
+    nav.handleInputAction(InputAction::ZoomIn); // zoom 1.5 -- past the ~1.333x threshold
+    QCOMPARE(nav.zoom(), 1.5);
+    nav.handleInputAction(InputAction::Right);
+    QVERIFY(nav.pan().x() != 0.0); // past threshold -> pan now allowed
 }
 
 void TestNavigation::resetZoom_returnsToOneAndClearsPan()

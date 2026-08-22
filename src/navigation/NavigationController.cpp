@@ -113,7 +113,7 @@ void NavigationController::handlePanDragDelta(QPointF delta)
 {
     if (zoom() <= 1.0)
         return;
-    setPan(NavMath::clampPan(m_pan + delta, zoom(), m_viewportSize));
+    setPan(NavMath::clampPan(m_pan + delta, zoom(), m_contentSize, m_viewportSize));
 }
 
 void NavigationController::selectMosaicTile(int index)
@@ -128,6 +128,11 @@ void NavigationController::selectMosaicTile(int index)
 void NavigationController::setViewportSize(QSizeF size)
 {
     m_viewportSize = size;
+}
+
+void NavigationController::setContentSize(QSizeF size)
+{
+    m_contentSize = size;
 }
 
 void NavigationController::enterFullscreenAt(int index)
@@ -186,7 +191,7 @@ void NavigationController::applyZoomStep(int direction, QPointF pivot)
     if (m_zoomIndex == 0)
         setPan({ 0, 0 });
     else
-        setPan(NavMath::clampPan(newPan, zoom(), m_viewportSize));
+        setPan(NavMath::clampPan(newPan, zoom(), m_contentSize, m_viewportSize));
 }
 
 void NavigationController::setZoomIndex(int index)
@@ -207,14 +212,14 @@ void NavigationController::setPan(QPointF pan)
 
 void NavigationController::panByKeyStep(InputAction direction)
 {
-    // Scales with zoom exactly like clampPan's own max range (viewport *
-    // (zoom-1) / 2) does, just further divided by kPanStepsToEdge -- so
-    // the number of presses needed to reach the edge stays roughly
-    // constant across zoom levels, instead of growing with zoom the way a
-    // fixed pixel step would.
-    const qreal factor = std::max(0.0, zoom() - 1.0) / (2.0 * kPanStepsToEdge);
-    const qreal stepX = m_viewportSize.width() * factor;
-    const qreal stepY = m_viewportSize.height() * factor;
+    // Mirrors clampPan's own max-range formula exactly (see its comment),
+    // just further divided by kPanStepsToEdge -- so the number of presses
+    // needed to reach the edge stays roughly constant across zoom levels,
+    // and step is correctly 0 below the zoom level where content*zoom
+    // hasn't yet reached viewport size in a given axis (SPEC §34).
+    const qreal stepX = std::max(0.0, m_contentSize.width() * zoom() - m_viewportSize.width()) / (2.0 * kPanStepsToEdge);
+    const qreal stepY =
+        std::max(0.0, m_contentSize.height() * zoom() - m_viewportSize.height()) / (2.0 * kPanStepsToEdge);
 
     // Pan represents the content's own translation, not the viewport's, so
     // "reveal more of the right side" (Right) moves the content left.
@@ -235,5 +240,5 @@ void NavigationController::panByKeyStep(InputAction direction)
     default:
         return;
     }
-    setPan(NavMath::clampPan(m_pan + delta, zoom(), m_viewportSize));
+    setPan(NavMath::clampPan(m_pan + delta, zoom(), m_contentSize, m_viewportSize));
 }

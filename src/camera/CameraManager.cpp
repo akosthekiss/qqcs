@@ -98,6 +98,18 @@ AppSinkVideoItem *CameraManager::fullscreenVideoItem() const
     return m_fullscreenPipeline ? m_fullscreenPipeline->videoItem() : nullptr;
 }
 
+QSizeF CameraManager::fullscreenContentSize() const
+{
+    return m_fullscreenPipeline ? m_fullscreenPipeline->videoItem()->contentSize() : QSizeF();
+}
+
+void CameraManager::setFullscreenAvailableSize(QSizeF size)
+{
+    m_fullscreenAvailableSize = size;
+    if (m_fullscreenPipeline)
+        m_fullscreenPipeline->videoItem()->setAvailableSize(size);
+}
+
 void CameraManager::attachMosaicVideo(const QString &id, QQuickItem *container)
 {
     AppSinkVideoItem *item = mosaicVideoItem(id);
@@ -178,6 +190,11 @@ void CameraManager::switchFullscreenCamera(const QString &id)
             &CameraManager::fullscreenStatusChanged);
     connect(m_fullscreenPipeline.get(), &RtspStreamPipeline::hasAudioChanged, this,
             &CameraManager::fullscreenStatusChanged);
+    // SPEC §34: re-forwarded on every switch since it's a new AppSinkVideoItem
+    // each time -- see fullscreenContentSize()'s own comment.
+    connect(m_fullscreenPipeline->videoItem(), &AppSinkVideoItem::contentSizeChanged, this,
+            &CameraManager::fullscreenContentSizeChanged);
+    m_fullscreenPipeline->videoItem()->setAvailableSize(m_fullscreenAvailableSize);
     if (m_started)
         m_fullscreenPipeline->start();
     m_fullscreenPipeline->enableAudio(true); // SPEC §13: fullscreen audio is automatic, no config flag
@@ -185,6 +202,7 @@ void CameraManager::switchFullscreenCamera(const QString &id)
     m_fullscreenId = id;
     emit fullscreenIdChanged(m_fullscreenId);
     emit fullscreenStatusChanged();
+    emit fullscreenContentSizeChanged();
 }
 
 void CameraManager::teardownFullscreenPipeline()

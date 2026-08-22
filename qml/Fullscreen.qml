@@ -7,19 +7,47 @@
 
 import QtQuick
 
-// SPEC §11/§14/§18: full available screen, video aspect unchanged.
-// zoom==1.0 -> CONTAIN (letterbox allowed). zoom>1.0 -> the whole
-// transformRoot is scaled around the viewport center and translated by
-// pan, so it always fills the viewport with no black bars, matching
-// ZOOM/COVER regardless of native video aspect ratio (SPEC §34).
+// SPEC §11/§14/§18/§34: full available screen, video aspect unchanged.
+// zoom==1.0 -> CONTAIN (letterbox allowed). zoom>1.0 -> ZOOM/COVER:
+// transformRoot is sized to the video's own CONTAIN-letterboxed content
+// rect (cameraManager.fullscreenContentSize), not the full window/parent,
+// so any black bar is static background OUTSIDE the scaled/panned item --
+// scaling transformRoot up therefore genuinely shrinks the bars (they
+// never move/grow with it) until they're fully covered, rather than just
+// scaling a fixed letterboxed image (bars included) uniformly, which
+// would keep them reachable via pan at any zoom. `clip: true` is needed
+// since transformRoot can grow past root's own bounds once zoomed.
 Item {
     id: root
+    clip: true
 
     property var info: ({})
 
     function refreshInfo() {
         info = cameraManager.fullscreenStatus()
     }
+
+    // cameraManager.fullscreenContentSize() is Q_INVOKABLE, not a
+    // NOTIFYing Q_PROPERTY -- QML can't track it as a binding dependency,
+    // so this is called imperatively from the actual triggers (window
+    // resize, camera switch, and CameraManager's own
+    // fullscreenContentSizeChanged, fired once native resolution becomes
+    // known) rather than as a declarative width/height binding.
+    function syncContentSize() {
+        const size = cameraManager.fullscreenContentSize()
+        const valid = size.width > 0 && size.height > 0
+        transformRoot.width = valid ? size.width : root.width
+        transformRoot.height = valid ? size.height : root.height
+        navigationController.setContentSize(Qt.size(transformRoot.width, transformRoot.height))
+    }
+
+    function updateAvailableSize() {
+        cameraManager.setFullscreenAvailableSize(Qt.size(root.width, root.height))
+        syncContentSize()
+    }
+
+    onWidthChanged: updateAvailableSize()
+    onHeightChanged: updateAvailableSize()
 
     Rectangle {
         anchors.fill: parent
@@ -28,12 +56,12 @@ Item {
 
     Item {
         id: transformRoot
-        width: parent.width
-        height: parent.height
         transformOrigin: Item.Center
         scale: navigationController.zoom
-        x: navigationController.pan.x
-        y: navigationController.pan.y
+        // Centered within root by default (pan==0), same as the
+        // pre-§34 letterboxed look; pan then offsets from there.
+        x: (root.width - width) / 2 + navigationController.pan.x
+        y: (root.height - height) / 2 + navigationController.pan.y
 
         Item {
             id: videoSlot
@@ -76,8 +104,10 @@ Item {
     }
 
     function reattach() {
-        if (navigationController.isFullscreen)
+        if (navigationController.isFullscreen) {
             cameraManager.attachFullscreenVideo(videoSlot)
+            updateAvailableSize() // new video item -> needs its available size (re-)set
+        }
     }
 
     Component.onCompleted: {
@@ -96,5 +126,9 @@ Item {
         target: cameraManager
         function onFullscreenIdChanged(id) { root.reattach() }
         function onFullscreenStatusChanged() { root.refreshInfo() }
+        // Fires once the new camera's native resolution becomes known
+        // (first frame decoded) -- until then syncContentSize() (already
+        // called from reattach()) falls back to the full window size.
+        function onFullscreenContentSizeChanged() { root.syncContentSize() }
     }
 }

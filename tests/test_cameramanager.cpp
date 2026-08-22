@@ -48,6 +48,8 @@ private slots:
     void pipelinesNotStartedUntilStartCalled();
     void fillModesDefaultToCoverAndContain();
     void fillModesHonorConfigOverride();
+    void fullscreenContentSizeMatchesAvailableSizeBeforeNativeResolutionKnown();
+    void fullscreenContentSizeChangedForwardedAcrossCameraSwitch();
 };
 
 void TestCameraManager::listModelReflectsConfig()
@@ -163,6 +165,35 @@ void TestCameraManager::fillModesHonorConfigOverride()
     QQuickItem fullscreenContainer;
     manager.attachFullscreenVideo(&fullscreenContainer);
     QCOMPARE(manager.fullscreenVideoItem()->fillMode(), AppSinkVideoItem::FillMode::Fill);
+}
+
+void TestCameraManager::fullscreenContentSizeMatchesAvailableSizeBeforeNativeResolutionKnown()
+{
+    // SPEC §34: before any frame has arrived (native resolution unknown --
+    // no real pipeline/network I/O happens in this test, per this file's
+    // own stated philosophy), content size must fall back to the full
+    // available size, regardless of fill mode -- there's no letterbox
+    // information yet to compute anything narrower.
+    CameraManager manager(makeConfig());
+    manager.enterFullscreen(QStringLiteral("front"));
+    manager.setFullscreenAvailableSize(QSizeF(1920, 1080));
+    QCOMPARE(manager.fullscreenContentSize(), QSizeF(1920, 1080));
+}
+
+void TestCameraManager::fullscreenContentSizeChangedForwardedAcrossCameraSwitch()
+{
+    // The fullscreen AppSinkVideoItem is a new object every camera switch
+    // (switchFullscreenCamera), so the contentSizeChanged forwarding
+    // connection must be re-established each time, not just once.
+    CameraManager manager(makeConfig());
+    QSignalSpy spy(&manager, &CameraManager::fullscreenContentSizeChanged);
+
+    manager.enterFullscreen(QStringLiteral("front"));
+    QVERIFY(spy.count() >= 1);
+    spy.clear();
+
+    manager.switchFullscreenCamera(QStringLiteral("garden"));
+    QVERIFY(spy.count() >= 1);
 }
 
 QTEST_APPLESS_MAIN(TestCameraManager)

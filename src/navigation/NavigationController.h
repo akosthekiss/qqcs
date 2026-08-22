@@ -59,6 +59,11 @@ public slots:
     void handlePanDragDelta(QPointF delta);
     void selectMosaicTile(int index);
     void setViewportSize(QSizeF size);
+    // SPEC §34: the fullscreen video's actual on-screen size at zoom==1.0
+    // (CameraManager::fullscreenContentSize(), forwarded from QML) -- see
+    // NavMath::clampPan's comment for why this, not just viewport size, is
+    // what pan clamping needs to implement "ZOOM/COVER" correctly.
+    void setContentSize(QSizeF size);
 
 signals:
     void viewModeChanged();
@@ -92,6 +97,10 @@ private:
     QPointF m_pan{ 0, 0 };
     bool m_diagnosticsVisible = false;
     QSizeF m_viewportSize{ 1280, 720 };
+    // Defaults to match m_viewportSize until the real value is known (no
+    // video/native resolution yet) -- i.e. "assume no letterbox" rather
+    // than "assume zero content", which would otherwise forbid all pan.
+    QSizeF m_contentSize{ 1280, 720 };
 
     // Number of key/CEC presses to go from center to the pannable edge, at
     // any zoom level -- the step itself is computed from this (see

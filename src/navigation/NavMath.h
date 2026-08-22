@@ -67,13 +67,25 @@ inline QPointF zoomedPan(QPointF oldPan, qreal oldZoom, qreal newZoom, QPointF p
     return k * oldPan + (1.0 - k) * u;
 }
 
-// Keeps panned content from going out of its valid range. At zoom==1.0
-// this always collapses to (0,0), which is what forces the CONTAIN
-// invariant even if float rounding nudges pan off zero.
-inline QPointF clampPan(QPointF pan, qreal zoom, QSizeF viewport)
+// Keeps panned content from going out of its valid range. `contentSize` is
+// the actual on-screen size of the video at zoom==1.0 (AppSinkVideoItem::
+// contentSize(), forwarded via CameraManager::fullscreenContentSize()) --
+// equal to `viewport` for Cover/Fill (no letterbox at all), but smaller
+// than it in the letterboxed axis for Contain. Scaling that by `zoom` and
+// comparing against `viewport` (not `contentSize` again) is what
+// implements SPEC §34's "ZOOM/COVER": below the zoom level where
+// contentSize*zoom reaches viewport size in a given axis, max pan in that
+// axis is forced to 0 -- there is no pan position, however small, that
+// wouldn't reveal a black bar the CONTAIN letterbox already unavoidably
+// has at that zoom -- so it collapses to the exact same "no pan below
+// that point" behavior a tight clamp alone could give, without pretending
+// pan could ever fully hide a bar zoom hasn't yet grown past. Once past
+// it, this reduces to the original Cover-style formula
+// (viewport*(zoom-1)/2) exactly, since contentSize==viewport there.
+inline QPointF clampPan(QPointF pan, qreal zoom, QSizeF contentSize, QSizeF viewport)
 {
-    const qreal maxX = viewport.width() * std::max(0.0, zoom - 1.0) / 2.0;
-    const qreal maxY = viewport.height() * std::max(0.0, zoom - 1.0) / 2.0;
+    const qreal maxX = std::max(0.0, contentSize.width() * zoom - viewport.width()) / 2.0;
+    const qreal maxY = std::max(0.0, contentSize.height() * zoom - viewport.height()) / 2.0;
     return { std::clamp(pan.x(), -maxX, maxX), std::clamp(pan.y(), -maxY, maxY) };
 }
 

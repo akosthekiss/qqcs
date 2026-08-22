@@ -28,6 +28,25 @@ void AppSinkVideoItem::setFillMode(FillMode mode)
         return;
     m_fillMode = mode;
     update();
+    emit contentSizeChanged();
+}
+
+void AppSinkVideoItem::setAvailableSize(QSizeF size)
+{
+    if (m_availableSize == size)
+        return;
+    m_availableSize = size;
+    emit availableSizeChanged();
+    emit contentSizeChanged();
+}
+
+QSizeF AppSinkVideoItem::contentSize() const
+{
+    if (m_availableSize.width() <= 0 || m_availableSize.height() <= 0)
+        return m_availableSize;
+    if (m_fillMode != FillMode::Contain || m_nativeWidth <= 0 || m_nativeHeight <= 0)
+        return m_availableSize; // Cover/Fill always fill exactly; no native size yet -> assume full
+    return VideoFillMath::containDestRect(QSizeF(m_nativeWidth, m_nativeHeight), m_availableSize).size();
 }
 
 void AppSinkVideoItem::pushSample(GstSample *sample)
@@ -72,8 +91,10 @@ void AppSinkVideoItem::pushSample(GstSample *sample)
         m_nativeHeight = height;
     }
 
-    if (sizeChanged)
+    if (sizeChanged) {
         QMetaObject::invokeMethod(this, &AppSinkVideoItem::videoSizeChanged, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(this, &AppSinkVideoItem::contentSizeChanged, Qt::QueuedConnection);
+    }
     QMetaObject::invokeMethod(this, "update", Qt::QueuedConnection);
 }
 

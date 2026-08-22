@@ -14,6 +14,7 @@
 #include <QHash>
 #include <QObject>
 #include <QQuickItem>
+#include <QSizeF>
 #include <QString>
 #include <QVariantMap>
 #include <QVector>
@@ -59,6 +60,22 @@ public:
     AppSinkVideoItem *mosaicVideoItem(const QString &id) const;
     AppSinkVideoItem *fullscreenVideoItem() const;
 
+    // SPEC §34 "ZOOM/COVER": the actual on-screen size of the fullscreen
+    // video (== the window size for Cover/Fill, or the letterboxed rect's
+    // own size for Contain) -- QML resizes its zoom/pan transform to
+    // exactly this, and NavigationController clamps pan against it, so
+    // panning/zooming can never reveal more black bar than CONTAIN
+    // already unavoidably shows at the current zoom level. Deliberately
+    // exposed here (not via AppSinkVideoItem, which QML never sees
+    // directly, see attachFullscreenVideo's own comment) and re-emitted
+    // whenever the underlying item's own contentSizeChanged fires.
+    Q_INVOKABLE QSizeF fullscreenContentSize() const;
+    // Called from QML with the fullscreen view's own (window) size --
+    // independent of any particular camera's video item, so it must be
+    // re-applied to each new one on every camera switch (see
+    // switchFullscreenCamera).
+    Q_INVOKABLE void setFullscreenAvailableSize(QSizeF size);
+
     // Reparents the given camera's video item into `container` and anchors
     // it to fill that container. Called from QML (Component.onCompleted on
     // a plain placeholder Item) so QML never needs to know AppSinkVideoItem
@@ -74,6 +91,7 @@ public:
 signals:
     void fullscreenIdChanged(const QString &id);
     void fullscreenStatusChanged();
+    void fullscreenContentSizeChanged();
 
 private:
     struct CameraRuntime {
@@ -89,5 +107,6 @@ private:
     QVector<CameraRuntime> m_runtimes;
     QString m_fullscreenId;
     std::unique_ptr<RtspStreamPipeline> m_fullscreenPipeline;
+    QSizeF m_fullscreenAvailableSize;
     bool m_started = false;
 };
