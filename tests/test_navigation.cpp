@@ -50,6 +50,7 @@ private slots:
     void fullscreen_leftRightCyclicAtZoomOne();
     void exitToMosaic_focusFollowsFullscreenCameraSwitch();
     void fullscreen_leftRightPanAtZoomAboveOne();
+    void panStepScalesWithZoomLevel();
 
     // NavigationController -- zoom/reset (SPEC §14/§17/§18)
     void resetZoom_returnsToOneAndClearsPan();
@@ -214,6 +215,35 @@ void TestNavigation::fullscreen_leftRightPanAtZoomAboveOne()
     nav.handleInputAction(InputAction::Down);
     nav.handleInputAction(InputAction::Left);
     QCOMPARE(nav.fullscreenIndex(), indexBefore); // still no camera switch
+}
+
+void TestNavigation::panStepScalesWithZoomLevel()
+{
+    // Regression test: the per-press pan step used to be a fixed pixel
+    // amount while the pannable range grows with zoom, so higher zoom
+    // levels needed far more presses to reach the edge. A single Right
+    // press should move further in absolute pixels at a higher zoom.
+    NavigationController lowZoom(tenCameraIds(), 4);
+    lowZoom.setViewportSize(QSizeF(1280, 720));
+    lowZoom.selectMosaicTile(4);
+    lowZoom.handleInputAction(InputAction::ZoomIn); // zoom 1.5
+    QCOMPARE(lowZoom.zoom(), 1.5);
+    lowZoom.handleInputAction(InputAction::Right);
+    const qreal stepAtLowZoom = qAbs(lowZoom.pan().x());
+
+    NavigationController highZoom(tenCameraIds(), 4);
+    highZoom.setViewportSize(QSizeF(1280, 720));
+    highZoom.selectMosaicTile(4);
+    highZoom.handleInputAction(InputAction::ZoomIn); // 1.5
+    highZoom.handleInputAction(InputAction::ZoomIn); // 2.0
+    highZoom.handleInputAction(InputAction::ZoomIn); // 3.0
+    highZoom.handleInputAction(InputAction::ZoomIn); // 4.0
+    QCOMPARE(highZoom.zoom(), 4.0);
+    highZoom.handleInputAction(InputAction::Right);
+    const qreal stepAtHighZoom = qAbs(highZoom.pan().x());
+
+    QVERIFY(stepAtLowZoom > 0.0);
+    QVERIFY(stepAtHighZoom > stepAtLowZoom);
 }
 
 void TestNavigation::resetZoom_returnsToOneAndClearsPan()

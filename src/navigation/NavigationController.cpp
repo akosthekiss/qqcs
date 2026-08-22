@@ -207,21 +207,30 @@ void NavigationController::setPan(QPointF pan)
 
 void NavigationController::panByKeyStep(InputAction direction)
 {
+    // Scales with zoom exactly like clampPan's own max range (viewport *
+    // (zoom-1) / 2) does, just further divided by kPanStepsToEdge -- so
+    // the number of presses needed to reach the edge stays roughly
+    // constant across zoom levels, instead of growing with zoom the way a
+    // fixed pixel step would.
+    const qreal factor = std::max(0.0, zoom() - 1.0) / (2.0 * kPanStepsToEdge);
+    const qreal stepX = m_viewportSize.width() * factor;
+    const qreal stepY = m_viewportSize.height() * factor;
+
     // Pan represents the content's own translation, not the viewport's, so
     // "reveal more of the right side" (Right) moves the content left.
     QPointF delta;
     switch (direction) {
     case InputAction::Up:
-        delta = { 0, kKeyPanStep };
+        delta = { 0, stepY };
         break;
     case InputAction::Down:
-        delta = { 0, -kKeyPanStep };
+        delta = { 0, -stepY };
         break;
     case InputAction::Left:
-        delta = { kKeyPanStep, 0 };
+        delta = { stepX, 0 };
         break;
     case InputAction::Right:
-        delta = { -kKeyPanStep, 0 };
+        delta = { -stepX, 0 };
         break;
     default:
         return;

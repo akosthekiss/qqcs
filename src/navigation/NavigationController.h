@@ -93,5 +93,10 @@ private:
     bool m_diagnosticsVisible = false;
     QSizeF m_viewportSize{ 1280, 720 };
 
-    static constexpr qreal kKeyPanStep = 60.0;
+    // Number of key/CEC presses to go from center to the pannable edge, at
+    // any zoom level -- the step itself is computed from this (see
+    // panByKeyStep()), scaling with zoom the same way clampPan's own max
+    // range does, rather than being a fixed pixel amount that would need
+    // ever more presses as zoom increases.
+    static constexpr qreal kPanStepsToEdge = 10.0;
 };
