@@ -23,6 +23,10 @@ Item {
     // Mosaic never plays audio (many parallel streams), so it has no use
     // for this; only Fullscreen/zoom sets this true.
     property bool showAudioStatus: false
+    // Mosaic has no zoom concept at all, so it never sets this; only
+    // Fullscreen does. 1.0 means "not zoomed" -- same defaulting idiom
+    // as showAudioStatus above.
+    property real zoom: 1.0
 
     readonly property bool isConnecting: cameraState === 1
     readonly property bool isLive: cameraState === 2
@@ -74,6 +78,13 @@ Item {
                 color: "#e0463b"
                 font.pixelSize: 15
                 text: "Reconnect: " + root.reconnectSeconds + "s"
+            }
+
+            Text {
+                visible: root.zoom > 1.0
+                color: root.stateColor
+                font.pixelSize: 15
+                text: "Zoom: " + root.zoom.toFixed(1) + "×"
             }
         }
     }

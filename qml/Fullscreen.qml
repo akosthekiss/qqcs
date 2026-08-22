@@ -97,6 +97,7 @@ Item {
         hasAudio: root.info.hasAudio || false
         reconnectSeconds: root.info.reconnectSeconds !== undefined ? root.info.reconnectSeconds : -1
         showAudioStatus: true // SPEC: audio status only meaningful where audio actually plays
+        zoom: navigationController.zoom // mosaic tiles never set this -- no zoom concept there
     }
 
     DiagnosticsOverlay {
