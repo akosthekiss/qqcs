@@ -43,6 +43,12 @@ const QSet<QString> &validOverlayPositions()
     return positions;
 }
 
+const QSet<QString> &validFillModes()
+{
+    static const QSet<QString> modes{QStringLiteral("cover"), QStringLiteral("contain"), QStringLiteral("fill")};
+    return modes;
+}
+
 } // namespace
 
 ConfigLoader::Result ConfigLoader::loadFromFile(const QString &path)
@@ -88,12 +94,34 @@ ConfigLoader::Result ConfigLoader::parse(const QString &yamlText)
     if (const auto layoutNode = root["layout"]) {
         if (!layoutNode.IsMap()) {
             result.errors << QStringLiteral("layout: must be a map");
-        } else if (const auto colNode = layoutNode["columns"]) {
-            int columns = 0;
-            if (!tryAs(colNode, columns) || columns <= 0)
-                result.errors << QStringLiteral("layout.columns: must be a positive integer");
-            else
-                result.config.layout.columns = columns;
+        } else {
+            if (const auto colNode = layoutNode["columns"]) {
+                int columns = 0;
+                if (!tryAs(colNode, columns) || columns <= 0)
+                    result.errors << QStringLiteral("layout.columns: must be a positive integer");
+                else
+                    result.config.layout.columns = columns;
+            }
+            if (const auto n = layoutNode["mosaicFillMode"]) {
+                const QString mode = asQString(n);
+                if (!validFillModes().contains(mode))
+                    result.errors << QStringLiteral(
+                                         "layout.mosaicFillMode: invalid value '%1' (expected one of: cover, "
+                                         "contain, fill)")
+                                         .arg(mode);
+                else
+                    result.config.layout.mosaicFillMode = mode;
+            }
+            if (const auto n = layoutNode["fullscreenFillMode"]) {
+                const QString mode = asQString(n);
+                if (!validFillModes().contains(mode))
+                    result.errors << QStringLiteral(
+                                         "layout.fullscreenFillMode: invalid value '%1' (expected one of: cover, "
+                                         "contain, fill)")
+                                         .arg(mode);
+                else
+                    result.config.layout.fullscreenFillMode = mode;
+            }
         }
     }
 

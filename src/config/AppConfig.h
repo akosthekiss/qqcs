@@ -24,6 +24,11 @@ struct CameraConfig {
 
 struct LayoutConfig {
     int columns = 4;
+    // SPEC §6.2: "cover" | "contain" | "fill". Kept as plain strings here
+    // (not AppSinkVideoItem::FillMode) so the config layer stays free of
+    // the camera subsystem's types; CameraManager maps them where consumed.
+    QString mosaicFillMode = QStringLiteral("cover");
+    QString fullscreenFillMode = QStringLiteral("contain");
 };
 
 struct OverlayConfig {

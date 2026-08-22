@@ -113,12 +113,22 @@ QSGNode *AppSinkVideoItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData
     }
 
     const QSizeF itemSize(itemW, itemH);
-    if (m_fillMode == FillMode::Cover) {
+    switch (m_fillMode) {
+    case FillMode::Cover:
         node->setSourceRect(VideoFillMath::coverSourceRect(texSize, itemSize));
         node->setRect(boundingRect());
-    } else {
+        break;
+    case FillMode::Contain:
         node->setSourceRect(QRectF(QPointF(0, 0), texSize));
         node->setRect(VideoFillMath::containDestRect(texSize, itemSize));
+        break;
+    case FillMode::Fill:
+        // Full source, full destination -- no crop, no letterbox, and
+        // therefore no aspect-ratio preservation either. The one mode
+        // that can distort (SPEC §6.2's explicit, opt-in exception).
+        node->setSourceRect(QRectF(QPointF(0, 0), texSize));
+        node->setRect(boundingRect());
+        break;
     }
 
     return node;

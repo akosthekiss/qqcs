@@ -23,11 +23,13 @@ class AppSinkVideoItem : public QQuickItem
     Q_OBJECT
 
 public:
-    // SPEC §9/§34: video must never be distorted. Cover crops (mosaic);
-    // Contain letterboxes (fullscreen at 1.0x). Zoom/pan (fullscreen >1.0x,
-    // SPEC §14/§18) is applied on top of Cover by NavigationController via
-    // an outer QML transform, not by this item.
-    enum class FillMode { Cover, Contain };
+    // SPEC §9/§11: Cover crops (mosaic default); Contain letterboxes
+    // (fullscreen default at 1.0x). Zoom/pan (fullscreen >1.0x, SPEC
+    // §14/§18) is applied on top of whichever mode is active by
+    // NavigationController via an outer QML transform, not by this item.
+    // Fill (SPEC §6.2) is the one explicit, user-opted-in exception to
+    // "never distorted" -- stretches to the item's exact bounds.
+    enum class FillMode { Cover, Contain, Fill };
 
     explicit AppSinkVideoItem(QQuickItem *parent = nullptr);
     ~AppSinkVideoItem() override;

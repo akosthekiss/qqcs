@@ -23,6 +23,20 @@ void attachVideoItem(AppSinkVideoItem *videoItem, QQuickItem *container)
     QQmlProperty(videoItem, QStringLiteral("anchors.fill")).write(QVariant::fromValue(container));
 }
 
+// ConfigLoader already validated this to one of "cover"/"contain"/"fill"
+// (SPEC §6.2); the fallback here is just defensive, not a second
+// validation pass.
+AppSinkVideoItem::FillMode toFillMode(const QString &mode, AppSinkVideoItem::FillMode fallback)
+{
+    if (mode == QStringLiteral("cover"))
+        return AppSinkVideoItem::FillMode::Cover;
+    if (mode == QStringLiteral("contain"))
+        return AppSinkVideoItem::FillMode::Contain;
+    if (mode == QStringLiteral("fill"))
+        return AppSinkVideoItem::FillMode::Fill;
+    return fallback;
+}
+
 } // namespace
 
 CameraManager::CameraManager(AppConfig config, QObject *parent)
@@ -87,16 +101,16 @@ AppSinkVideoItem *CameraManager::fullscreenVideoItem() const
 void CameraManager::attachMosaicVideo(const QString &id, QQuickItem *container)
 {
     AppSinkVideoItem *item = mosaicVideoItem(id);
-    if (item)
-        item->setFillMode(AppSinkVideoItem::FillMode::Cover); // SPEC §9: mosaic is COVER
+    if (item) // SPEC §6.2/§9: mosaic defaults to COVER, configurable
+        item->setFillMode(toFillMode(m_config.layout.mosaicFillMode, AppSinkVideoItem::FillMode::Cover));
     attachVideoItem(item, container);
 }
 
 void CameraManager::attachFullscreenVideo(QQuickItem *container)
 {
     AppSinkVideoItem *item = fullscreenVideoItem();
-    if (item)
-        item->setFillMode(AppSinkVideoItem::FillMode::Contain); // SPEC §11: fullscreen 1.0x is CONTAIN
+    if (item) // SPEC §6.2/§11: fullscreen 1.0x defaults to CONTAIN, configurable
+        item->setFillMode(toFillMode(m_config.layout.fullscreenFillMode, AppSinkVideoItem::FillMode::Contain));
     attachVideoItem(item, container);
 }
 

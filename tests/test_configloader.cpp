@@ -22,6 +22,10 @@ private slots:
     void shortcutOutOfRange();
     void invalidColumns();
     void invalidOverlayPosition();
+    void fillModeDefaults();
+    void fillModesAreConfigurable();
+    void invalidMosaicFillMode();
+    void invalidFullscreenFillMode();
     void emptyCameraList();
     void subUrlOptional();
     void nameOptional();
@@ -149,6 +153,64 @@ cameras:
     const auto result = ConfigLoader::loadFromString(yaml);
     QVERIFY(!result.ok);
     QVERIFY(result.errors.join('\n').contains(QStringLiteral("overlay.position")));
+}
+
+void TestConfigLoader::fillModeDefaults()
+{
+    // SPEC §6.2: unspecified -> cover/contain, never the distorting "fill".
+    const QString yaml = R"(
+cameras:
+  - id: front
+    mainUrl: "rtsp://a/main"
+)";
+    const auto result = ConfigLoader::loadFromString(yaml);
+    QVERIFY(result.ok);
+    QCOMPARE(result.config.layout.mosaicFillMode, QStringLiteral("cover"));
+    QCOMPARE(result.config.layout.fullscreenFillMode, QStringLiteral("contain"));
+}
+
+void TestConfigLoader::fillModesAreConfigurable()
+{
+    const QString yaml = R"(
+layout:
+  mosaicFillMode: fill
+  fullscreenFillMode: fill
+cameras:
+  - id: front
+    mainUrl: "rtsp://a/main"
+)";
+    const auto result = ConfigLoader::loadFromString(yaml);
+    QVERIFY(result.ok);
+    QCOMPARE(result.config.layout.mosaicFillMode, QStringLiteral("fill"));
+    QCOMPARE(result.config.layout.fullscreenFillMode, QStringLiteral("fill"));
+}
+
+void TestConfigLoader::invalidMosaicFillMode()
+{
+    const QString yaml = R"(
+layout:
+  mosaicFillMode: stretch
+cameras:
+  - id: front
+    mainUrl: "rtsp://a/main"
+)";
+    const auto result = ConfigLoader::loadFromString(yaml);
+    QVERIFY(!result.ok);
+    QVERIFY(result.errors.join('\n').contains(QStringLiteral("layout.mosaicFillMode")));
+}
+
+void TestConfigLoader::invalidFullscreenFillMode()
+{
+    const QString yaml = R"(
+layout:
+  fullscreenFillMode: stretch
+cameras:
+  - id: front
+    mainUrl: "rtsp://a/main"
+)";
+    const auto result = ConfigLoader::loadFromString(yaml);
+    QVERIFY(!result.ok);
+    QVERIFY(result.errors.join('\n').contains(QStringLiteral("layout.fullscreenFillMode")));
 }
 
 void TestConfigLoader::emptyCameraList()

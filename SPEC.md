@@ -142,6 +142,8 @@ Example:
 ```yaml
 layout:
   columns: 4
+  mosaicFillMode: cover
+  fullscreenFillMode: contain
 
 overlay:
   enabled: true
@@ -203,6 +205,31 @@ If it exists, it should be preferred in mosaic view.
 
 ---
 
+## 6.2 Layout Fields
+
+### `mosaicFillMode`
+
+Optional, one of `cover` / `contain` / `fill`. Default: `cover`.
+
+Overrides the mosaic tiles' rendering mode described in §9. `cover` and
+`contain` never distort the image, exactly as §9 requires by default;
+`fill` is an explicit, user-opted-in exception that stretches the
+image to the tile's exact bounds without preserving its aspect ratio.
+It is off (i.e. `cover`) unless the configuration explicitly requests
+otherwise.
+
+### `fullscreenFillMode`
+
+Optional, one of `cover` / `contain` / `fill`. Default: `contain`.
+
+Same as `mosaicFillMode` above, but for the fullscreen rendering mode
+described in §11. Applies regardless of zoom level — zoom (§14) is a
+separate transform applied on top of whichever fill mode is in
+effect, and never introduces additional distortion beyond what that
+fill mode itself already has at `zoom = 1.0×`.
+
+---
+
 # 7. Configuration Validation
 
 On startup, the following must be checked:
@@ -212,7 +239,8 @@ On startup, the following must be checked:
 * uniqueness of camera IDs;
 * uniqueness of shortcuts;
 * shortcut value `0–9`;
-* layout values;
+* layout values, including `mosaicFillMode`/`fullscreenFillMode`
+  (§6.2);
 * overlay position.
 
 In case of invalid configuration:
@@ -254,9 +282,11 @@ Non-existent cells cannot be focused.
 
 # 9. Mosaic Aspect Ratio Handling
 
-The video image must **never be distorted**.
+The video image must **never be distorted, by default**. This can be
+overridden per §6.2's `mosaicFillMode` -- an explicit, user-opted-in
+`fill` setting is the one permitted exception to this rule.
 
-The rendering mode in mosaic:
+The default rendering mode in mosaic:
 
 ```text
 COVER
@@ -323,20 +353,25 @@ Enter
 left mouse button
 ```
 
-In fullscreen:
+In fullscreen, by default:
 
 * it uses the entire available screen;
 * the video's aspect ratio is unchanged;
 * at `zoom = 1.0×`, the entire video image is visible;
 * black letterbox/pillarbox bars are allowed where necessary.
 
-Fullscreen 1.0×:
+Fullscreen 1.0×, by default:
 
 ```text
 CONTAIN
 ```
 
 That is, the video does not need to fill the entire screen if that would require distortion or cropping.
+
+As with mosaic (§9), this is the default behaviour, overridable via
+§6.2's `fullscreenFillMode` -- `fill` explicitly opts into stretching
+the image to fill the screen at `zoom = 1.0×` without preserving its
+aspect ratio.
 
 ---
 
@@ -394,7 +429,10 @@ Supported zoom steps, for example:
 
 The maximum zoom should be easily adjustable.
 
-Zoom must not distort the image.
+Zoom itself must never introduce distortion beyond whatever the
+active fill mode (§6.2, §9, §11) already has at `zoom = 1.0×` -- it is
+a separate transform applied on top of the rendered image, not an
+independent source of stretching.
 
 In fullscreen, at `zoom > 1.0×`:
 
@@ -1038,9 +1076,9 @@ The first version is considered functionally complete if:
 2. Multiple cameras can be loaded from a YAML configuration.
 3. Multiple RTSP streams are displayed simultaneously.
 4. There is a focusable camera in mosaic view.
-5. The image is not distorted in mosaic view; it fills the tile with cropping if necessary.
+5. With the default `mosaicFillMode` (§6.2), the image is not distorted in mosaic view; it fills the tile with cropping if necessary.
 6. OK/left click enters fullscreen.
-7. At fullscreen 1.0×, the entire video image is visible.
+7. With the default `fullscreenFillMode` (§6.2), at fullscreen 1.0×, the entire video image is visible.
 8. At fullscreen 1.0×, Left/Right switches the camera.
 9. The red CEC button is Zoom+.
 10. The green CEC button is Zoom−.

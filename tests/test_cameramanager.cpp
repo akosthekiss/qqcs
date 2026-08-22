@@ -5,9 +5,11 @@
 // This file may not be copied, modified, or distributed except
 // according to those terms.
 
+#include "camera/AppSinkVideoItem.h"
 #include "camera/CameraManager.h"
 #include "camera/StreamUrlPolicy.h"
 
+#include <QQuickItem>
 #include <QSignalSpy>
 #include <QTest>
 
@@ -44,6 +46,8 @@ private slots:
     void mosaicPrefersSubUrl();
     void mosaicVideoItemsExistPerCamera();
     void pipelinesNotStartedUntilStartCalled();
+    void fillModesDefaultToCoverAndContain();
+    void fillModesHonorConfigOverride();
 };
 
 void TestCameraManager::listModelReflectsConfig()
@@ -125,6 +129,40 @@ void TestCameraManager::pipelinesNotStartedUntilStartCalled()
     manager.enterFullscreen(QStringLiteral("front"));
     QCOMPARE(manager.listModel()->data(manager.listModel()->index(0), CameraListModel::StateRole).toInt(),
               static_cast<int>(CameraState::Disconnected));
+}
+
+void TestCameraManager::fillModesDefaultToCoverAndContain()
+{
+    CameraManager manager(makeConfig()); // layout.mosaicFillMode/fullscreenFillMode left at their defaults
+
+    QQuickItem mosaicContainer;
+    manager.attachMosaicVideo(QStringLiteral("front"), &mosaicContainer);
+    QCOMPARE(manager.mosaicVideoItem(QStringLiteral("front"))->fillMode(), AppSinkVideoItem::FillMode::Cover);
+
+    manager.enterFullscreen(QStringLiteral("front"));
+    QQuickItem fullscreenContainer;
+    manager.attachFullscreenVideo(&fullscreenContainer);
+    QCOMPARE(manager.fullscreenVideoItem()->fillMode(), AppSinkVideoItem::FillMode::Contain);
+}
+
+void TestCameraManager::fillModesHonorConfigOverride()
+{
+    // SPEC §6.2: "fill" is the one explicit, opt-in exception that may
+    // distort the image -- CameraManager must actually apply it, not
+    // silently keep the cover/contain defaults.
+    AppConfig config = makeConfig();
+    config.layout.mosaicFillMode = QStringLiteral("fill");
+    config.layout.fullscreenFillMode = QStringLiteral("fill");
+    CameraManager manager(std::move(config));
+
+    QQuickItem mosaicContainer;
+    manager.attachMosaicVideo(QStringLiteral("front"), &mosaicContainer);
+    QCOMPARE(manager.mosaicVideoItem(QStringLiteral("front"))->fillMode(), AppSinkVideoItem::FillMode::Fill);
+
+    manager.enterFullscreen(QStringLiteral("front"));
+    QQuickItem fullscreenContainer;
+    manager.attachFullscreenVideo(&fullscreenContainer);
+    QCOMPARE(manager.fullscreenVideoItem()->fillMode(), AppSinkVideoItem::FillMode::Fill);
 }
 
 QTEST_APPLESS_MAIN(TestCameraManager)

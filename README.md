@@ -13,10 +13,11 @@ it for a new platform).
 ## Features
 
 - Mosaic/grid view of every configured camera, always live, COVER-mode
-  fill (no distortion, cropping allowed).
-- Fullscreen view of a focused camera, CONTAIN at 1.0× (no distortion,
-  letterboxing allowed), zoom/pan at >1.0× (fills the viewport, no black
-  bars, panable).
+  fill by default (no distortion, cropping allowed) — configurable, see
+  *Configuration*.
+- Fullscreen view of a focused camera, CONTAIN at 1.0× by default (no
+  distortion, letterboxing allowed) — also configurable — zoom/pan at
+  >1.0× (fills the viewport, no black bars, panable).
 - Automatic fullscreen audio when a stream has a supported audio track.
 - Always-on status overlay (camera name, LIVE/LOST, reconnect countdown).
 - Toggleable diagnostics overlay (codec, resolution, FPS, bitrate,
@@ -50,6 +51,8 @@ starting point.
 ```yaml
 layout:
   columns: 4
+  mosaicFillMode: cover
+  fullscreenFillMode: contain
 
 overlay:
   enabled: true
@@ -72,8 +75,10 @@ section) is left out of the file entirely.
 
 | Section | Field | Required? | Default | Effect |
 |---|---|---|---|---|
-| `layout` | — | No (whole section optional) | — | Mosaic grid layout. |
+| `layout` | — | No (whole section optional) | — | Mosaic grid layout and video rendering modes. |
 | | `columns` | No | `4` | Number of mosaic grid columns; positive integer. Row count is derived automatically from the camera count. |
+| | `mosaicFillMode` | No | `"cover"` | `"cover"`, `"contain"`, or `"fill"` — how each mosaic tile renders video whose aspect ratio doesn't match the tile's. `cover` crops, `contain` letterboxes; either way the image is never distorted. `fill` is the one exception: it stretches the image to the tile's exact bounds, not preserving aspect ratio — an explicit, opt-in trade-off, not the default. Any other value is a validation error. |
+| | `fullscreenFillMode` | No | `"contain"` | Same three values and same distortion caveat for `fill`, but for the fullscreen view at `zoom = 1.0×` (zoom itself never adds further distortion on top of whichever mode is active). Any other value is a validation error. |
 | `overlay` | — | No (whole section optional) | — | The always-on status overlay (camera name / LIVE-LOST / reconnect countdown) shown on every mosaic tile and in fullscreen. |
 | | `enabled` | No | `true` | Master on/off switch for the overlay. |
 | | `position` | No | `"bottom"` | `"top"` or `"bottom"` — vertical placement of the overlay within its tile/the fullscreen view. Any other value is a validation error. |
@@ -93,9 +98,10 @@ audio track (see *Diagnostics overlay* below for how that's determined).
 At startup, every problem found in the file is validated and logged
 together (not just the first one) — YAML syntax errors, missing
 required fields, duplicate `id`/`shortcut`, an out-of-range `shortcut`,
-a non-positive `layout.columns`, or an invalid `overlay.position`. A
-config that fails validation stops the app with a clear error rather
-than starting in a partially-broken state.
+a non-positive `layout.columns`, an invalid `overlay.position`, or an
+invalid `layout.mosaicFillMode`/`layout.fullscreenFillMode`. A config
+that fails validation stops the app with a clear error rather than
+starting in a partially-broken state.
 
 ## Running on desktop (macOS / Linux)
 
@@ -404,11 +410,15 @@ hardware (`modetest -M vc4` lists real connector names); a mismatch here
 is the most common cause of `eglfs` producing no visible output despite
 the process running normally.
 
-**Video looks stretched/squashed.** This should not happen — mosaic
-tiles crop (COVER) and fullscreen letterboxes (CONTAIN at 1.0×) or fills
-without cropping-required distortion (zoomed), never stretches. If you
-see stretching, it's a bug — please report it with the camera's native
-resolution and the window/tile size at the time.
+**Video looks stretched/squashed.** With the default `cover`/`contain`
+fill modes (see *Configuration*), this should not happen — mosaic tiles
+crop and fullscreen letterboxes at 1.0× (or fills without cropping-
+required distortion when zoomed), never stretches. If you *did*
+explicitly set `mosaicFillMode`/`fullscreenFillMode` to `fill`, this is
+expected — that mode trades aspect-ratio correctness for filling the
+tile/screen exactly, on purpose. Otherwise, it's a bug — please report
+it with the camera's native resolution, the configured fill mode, and
+the window/tile size at the time.
 
 ---
 
