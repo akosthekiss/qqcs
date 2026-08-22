@@ -148,6 +148,13 @@ void NavigationController::exitToMosaic()
     m_viewMode = ViewMode::Mosaic;
     setZoomIndex(0);
     setPan({ 0, 0 });
+    // Whichever camera was on screen in fullscreen (possibly switched via
+    // Left/Right since entering, so may have drifted from wherever mosaic
+    // focus was left) is what mosaic should now show as focused.
+    if (m_focusedMosaicIndex != m_fullscreenIndex) {
+        m_focusedMosaicIndex = m_fullscreenIndex;
+        emit focusedMosaicIndexChanged();
+    }
     emit viewModeChanged();
     emit fullscreenExited();
 }

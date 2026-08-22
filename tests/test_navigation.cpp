@@ -48,6 +48,7 @@ private slots:
 
     // NavigationController -- fullscreen camera switching (SPEC §12)
     void fullscreen_leftRightCyclicAtZoomOne();
+    void exitToMosaic_focusFollowsFullscreenCameraSwitch();
     void fullscreen_leftRightPanAtZoomAboveOne();
 
     // NavigationController -- zoom/reset (SPEC §14/§17/§18)
@@ -179,6 +180,22 @@ void TestNavigation::fullscreen_leftRightCyclicAtZoomOne()
     nav.handleInputAction(InputAction::Right);
     QCOMPARE(nav.fullscreenIndex(), 0);
     QVERIFY(activated.count() >= 3); // initial entry + two switches
+}
+
+void TestNavigation::exitToMosaic_focusFollowsFullscreenCameraSwitch()
+{
+    NavigationController nav(tenCameraIds(), 4);
+
+    nav.selectMosaicTile(0);
+    QCOMPARE(nav.focusedMosaicIndex(), 0);
+
+    nav.handleInputAction(InputAction::Right); // switch to camera 2 (index 1) while fullscreen
+    QCOMPARE(nav.fullscreenIndex(), 1);
+    QCOMPARE(nav.focusedMosaicIndex(), 0); // not yet synced -- still on mosaic entry point
+
+    nav.handleInputAction(InputAction::Back);
+    QCOMPARE(nav.viewMode(), NavigationController::ViewMode::Mosaic);
+    QCOMPARE(nav.focusedMosaicIndex(), 1); // mosaic focus follows the camera just shown fullscreen
 }
 
 void TestNavigation::fullscreen_leftRightPanAtZoomAboveOne()
