@@ -36,7 +36,7 @@ public:
 
     CameraListModel *listModel() const { return m_listModel; }
     QString currentFullscreenId() const { return m_fullscreenId; }
-    Q_INVOKABLE QString firstCameraId() const { return m_runtimes.isEmpty() ? QString() : m_runtimes.first().config.id; }
+    Q_INVOKABLE QString firstCameraId() const { return m_runtimes.isEmpty() ? QString() : m_runtimes.first().config->id; }
 
     QStringList cameraIds() const;
     // digit (0-9) -> index in cameraIds(), for NavigationController::setShortcutMap.
@@ -95,7 +95,11 @@ signals:
 
 private:
     struct CameraRuntime {
-        CameraConfig config;
+        // Points into m_config.cameras -- never a separate copy. Stable
+        // for this object's whole lifetime: m_config is set once (moved
+        // in at construction) and never resized afterward (no
+        // hot-reload), so its elements never move.
+        const CameraConfig *config = nullptr;
         RtspStreamPipeline *mosaicPipeline = nullptr;
     };
 

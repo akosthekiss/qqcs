@@ -49,7 +49,7 @@ CameraManager::CameraManager(AppConfig config, QObject *parent)
         const CameraConfig &camera = m_config.cameras.at(row);
 
         CameraRuntime runtime;
-        runtime.config = camera;
+        runtime.config = &camera;
         runtime.mosaicPipeline = new RtspStreamPipeline(StreamUrlPolicy::mosaicUrl(camera), this);
 
         connect(runtime.mosaicPipeline, &RtspStreamPipeline::stateChanged, m_listModel,
@@ -78,7 +78,7 @@ void CameraManager::start()
 CameraManager::CameraRuntime *CameraManager::runtimeForId(const QString &id)
 {
     for (auto &runtime : m_runtimes) {
-        if (runtime.config.id == id)
+        if (runtime.config->id == id)
             return &runtime;
     }
     return nullptr;
@@ -87,7 +87,7 @@ CameraManager::CameraRuntime *CameraManager::runtimeForId(const QString &id)
 AppSinkVideoItem *CameraManager::mosaicVideoItem(const QString &id) const
 {
     for (const auto &runtime : m_runtimes) {
-        if (runtime.config.id == id)
+        if (runtime.config->id == id)
             return runtime.mosaicPipeline->videoItem();
     }
     return nullptr;
@@ -131,7 +131,7 @@ QStringList CameraManager::cameraIds() const
     QStringList ids;
     ids.reserve(m_runtimes.size());
     for (const auto &runtime : m_runtimes)
-        ids << runtime.config.id;
+        ids << runtime.config->id;
     return ids;
 }
 
@@ -139,7 +139,7 @@ QHash<int, int> CameraManager::shortcutDigitToIndex() const
 {
     QHash<int, int> map;
     for (int i = 0; i < m_runtimes.size(); ++i) {
-        const CameraConfig &config = m_runtimes.at(i).config;
+        const CameraConfig &config = *m_runtimes.at(i).config;
         if (config.hasShortcut())
             map[config.shortcut] = i;
     }
@@ -184,7 +184,7 @@ void CameraManager::switchFullscreenCamera(const QString &id)
         m_fullscreenPipeline->enableAudio(false);
     teardownFullscreenPipeline();
 
-    m_fullscreenPipeline = std::make_unique<RtspStreamPipeline>(StreamUrlPolicy::fullscreenUrl(runtime->config));
+    m_fullscreenPipeline = std::make_unique<RtspStreamPipeline>(StreamUrlPolicy::fullscreenUrl(*runtime->config));
     connect(m_fullscreenPipeline.get(), &RtspStreamPipeline::stateChanged, this, &CameraManager::fullscreenStatusChanged);
     connect(m_fullscreenPipeline.get(), &RtspStreamPipeline::reconnectInfoChanged, this,
             &CameraManager::fullscreenStatusChanged);
@@ -221,14 +221,14 @@ QVariantMap CameraManager::fullscreenStatus() const
         return {};
     const CameraRuntime *runtime = nullptr;
     for (const auto &r : m_runtimes) {
-        if (r.config.id == m_fullscreenId) {
+        if (r.config->id == m_fullscreenId) {
             runtime = &r;
             break;
         }
     }
     return {
         { QStringLiteral("cameraId"), m_fullscreenId },
-        { QStringLiteral("name"), runtime ? runtime->config.name : QString() },
+        { QStringLiteral("name"), runtime ? runtime->config->name : QString() },
         { QStringLiteral("state"), static_cast<int>(m_fullscreenPipeline->state()) },
         { QStringLiteral("hasAudio"), m_fullscreenPipeline->hasAudio() },
         { QStringLiteral("reconnectSeconds"), m_fullscreenPipeline->reconnectSecondsRemaining() },
