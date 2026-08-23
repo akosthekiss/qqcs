@@ -193,7 +193,6 @@ private:
     QSet<GstElement *> m_audioElementSet; // same elements, for O(1) bus-error-source isolation
 
     QTimer m_busPollTimer;
-    bool m_seenFirstSample = false;
 
     // SPEC §22 diagnostics.
     QString m_videoCodec;

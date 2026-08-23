@@ -274,7 +274,6 @@ void RtspStreamPipeline::buildAndStartPipeline()
     gst_bin_add_many(GST_BIN(m_pipeline), m_source, m_appsink, nullptr);
 
     m_bus = gst_pipeline_get_bus(GST_PIPELINE(m_pipeline));
-    m_seenFirstSample = false;
     m_bitrateByteAccumulator.storeRelaxed(0);
     m_currentBitrateBps = 0;
     m_appsinkBufferCount.storeRelaxed(0);
@@ -583,12 +582,13 @@ int RtspStreamPipeline::newSampleCallback(GstElement *sink, void *userData)
         return static_cast<int>(GST_FLOW_ERROR);
 
     self->m_videoItem->pushSample(sample); // takes ownership
-    self->m_pulledSampleCount.fetchAndAddRelaxed(1);
-
-    if (!self->m_seenFirstSample) {
-        self->m_seenFirstSample = true;
+    // fetchAndAddRelaxed() returns the *previous* value -- 0 means this
+    // was the first sample pulled since the last buildAndStartPipeline()
+    // reset, atomically and without a separate (and, until now, racy --
+    // written from this GStreamer thread but reset from the GUI thread
+    // with no lock) bool flag to keep in sync.
+    if (self->m_pulledSampleCount.fetchAndAddRelaxed(1) == 0)
         QMetaObject::invokeMethod(self, &RtspStreamPipeline::handleFirstSample, Qt::QueuedConnection);
-    }
     return static_cast<int>(GST_FLOW_OK);
 }
 
