@@ -44,9 +44,9 @@ QSizeF AppSinkVideoItem::contentSize() const
 {
     if (m_availableSize.width() <= 0 || m_availableSize.height() <= 0)
         return m_availableSize;
-    if (m_fillMode != FillMode::Contain || m_nativeWidth <= 0 || m_nativeHeight <= 0)
+    if (m_fillMode != FillMode::Contain || m_nativeSize.width() <= 0 || m_nativeSize.height() <= 0)
         return m_availableSize; // Cover/Fill always fill exactly; no native size yet -> assume full
-    return VideoFillMath::containDestRect(QSizeF(m_nativeWidth, m_nativeHeight), m_availableSize).size();
+    return VideoFillMath::containDestRect(QSizeF(m_nativeSize), m_availableSize).size();
 }
 
 void AppSinkVideoItem::pushSample(GstSample *sample)
@@ -86,9 +86,9 @@ void AppSinkVideoItem::pushSample(GstSample *sample)
         QMutexLocker locker(&m_mutex);
         m_pendingFrame = image;
         m_hasPendingFrame = true;
-        sizeChanged = (m_nativeWidth != width || m_nativeHeight != height);
-        m_nativeWidth = width;
-        m_nativeHeight = height;
+        const QSize newSize(width, height);
+        sizeChanged = (m_nativeSize != newSize);
+        m_nativeSize = newSize;
     }
 
     if (sizeChanged) {

@@ -10,6 +10,7 @@
 #include <QImage>
 #include <QMutex>
 #include <QQuickItem>
+#include <QSize>
 
 typedef struct _GstSample GstSample;
 
@@ -34,8 +35,8 @@ public:
     explicit AppSinkVideoItem(QQuickItem *parent = nullptr);
     ~AppSinkVideoItem() override;
 
-    int nativeWidth() const { return m_nativeWidth; }
-    int nativeHeight() const { return m_nativeHeight; }
+    int nativeWidth() const { return m_nativeSize.width(); }
+    int nativeHeight() const { return m_nativeSize.height(); }
 
     FillMode fillMode() const { return m_fillMode; }
     void setFillMode(FillMode mode);
@@ -74,8 +75,7 @@ private:
     QMutex m_mutex;
     QImage m_pendingFrame;
     bool m_hasPendingFrame = false;
-    int m_nativeWidth = 0;
-    int m_nativeHeight = 0;
+    QSize m_nativeSize; // always written/read together (pushSample()/contentSize())
     FillMode m_fillMode = FillMode::Cover;
     QSizeF m_availableSize;
 };
