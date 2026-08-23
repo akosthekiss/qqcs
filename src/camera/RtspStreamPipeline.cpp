@@ -783,6 +783,24 @@ void RtspStreamPipeline::handleDecodebinPadAdded(GstPad *pad)
     gst_object_unref(sinkPad);
 }
 
+bool RtspStreamPipeline::hasAudio() const
+{
+    // m_hasAudio is written under the lock from handleOnSdp(), which can
+    // run on a GStreamer thread -- lock here too, symmetrically, so this
+    // never observes a torn/stale value.
+    QMutexLocker locker(&m_pipelineMutex);
+    return m_hasAudio;
+}
+
+bool RtspStreamPipeline::audioPlaybackError() const
+{
+    // Same reasoning as hasAudio(): m_audioPlaybackError is written
+    // under the lock from buildAudioBranch() (can run on a GStreamer
+    // thread) as well as handleBusMessage()/teardownPipeline().
+    QMutexLocker locker(&m_pipelineMutex);
+    return m_audioPlaybackError;
+}
+
 Diagnostics RtspStreamPipeline::diagnostics() const
 {
     // Called from the GUI thread (CameraManager), but m_videoCodec/m_fps/

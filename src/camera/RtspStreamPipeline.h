@@ -118,14 +118,14 @@ public:
     // learn this) -- independent of whether audio is actually playing
     // anywhere, so mosaic pipelines (which never call enableAudio(true))
     // still report this correctly.
-    bool hasAudio() const { return m_hasAudio; }
+    bool hasAudio() const;
 
     // SPEC §13: fullscreen-only, automatic, no config flag. Attaches/
     // detaches the actual decode+playback branch on demand. Safe to call
     // before the audio pad has appeared (SDP negotiation is async) -- the
     // branch is built as soon as both "wanted" and "pad available" hold.
     void enableAudio(bool enabled);
-    bool audioPlaybackError() const { return m_audioPlaybackError; }
+    bool audioPlaybackError() const;
 
     // SPEC §33: the scheduler is the single source of truth; these are
     // thin pass-throughs so CameraManager can push them into
