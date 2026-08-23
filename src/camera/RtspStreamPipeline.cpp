@@ -227,18 +227,21 @@ void RtspStreamPipeline::buildAndStartPipeline()
     // start() already guards against a live m_pipeline, but retryConnect()
     // (the other caller, reached via ReconnectScheduler::attemptDue) does
     // not -- if it were ever invoked while a pipeline is still live, this
-    // would silently overwrite m_pipeline/m_source/m_appsink out from
-    // under any in-flight callback still holding the old pointers,
-    // orphaning the old GstElements and leaving pad-added/on-sdp for the
-    // old rtspsrc operating on the new pipeline's members. Cheap to guard
-    // here unconditionally rather than rely on every caller doing it.
+    // would silently overwrite m_pipeline/m_appsink out from under any
+    // in-flight callback still holding the old pointers, orphaning the
+    // old GstElements and leaving pad-added/on-sdp for the old rtspsrc
+    // operating on the new pipeline's members. Cheap to guard here
+    // unconditionally rather than rely on every caller doing it.
     if (m_pipeline)
         return;
     m_pipeline = gst_pipeline_new(nullptr);
-    m_source = gst_element_factory_make("rtspsrc", nullptr);
+    // Not a member: nothing outside this function ever needs to reach
+    // rtspsrc again once it's wired up and added to the bin below (the
+    // whole pipeline's own teardown handles it).
+    GstElement *source = gst_element_factory_make("rtspsrc", nullptr);
     m_appsink = gst_element_factory_make("appsink", nullptr);
 
-    if (!m_pipeline || !m_source || !m_appsink) {
+    if (!m_pipeline || !source || !m_appsink) {
         qCWarning(lcCamera) << "Failed to create base pipeline elements for" << m_rtspUrl;
         // This function is already holding m_pipelineMutex -- see
         // teardownPipeline()'s comment for why handleStreamFailure()
@@ -247,7 +250,7 @@ void RtspStreamPipeline::buildAndStartPipeline()
         return;
     }
 
-    g_object_set(m_source,
+    g_object_set(source,
                  "location", m_rtspUrl.toUtf8().constData(),
                  "latency", kRtspLatencyMs,
                  "protocols", kRtspProtocolsTcp,
@@ -263,15 +266,15 @@ void RtspStreamPipeline::buildAndStartPipeline()
                  nullptr);
     gst_caps_unref(caps);
 
-    g_signal_connect(m_source, "pad-added", G_CALLBACK(&RtspStreamPipeline::padAddedCallback), this);
-    g_signal_connect(m_source, "on-sdp", G_CALLBACK(&RtspStreamPipeline::onSdpCallback), this);
+    g_signal_connect(source, "pad-added", G_CALLBACK(&RtspStreamPipeline::padAddedCallback), this);
+    g_signal_connect(source, "on-sdp", G_CALLBACK(&RtspStreamPipeline::onSdpCallback), this);
     g_signal_connect(m_appsink, "new-sample", G_CALLBACK(&RtspStreamPipeline::newSampleCallback), this);
 
     GstPad *appsinkSinkPad = gst_element_get_static_pad(m_appsink, "sink");
     gst_pad_add_probe(appsinkSinkPad, GST_PAD_PROBE_TYPE_BUFFER, &onAppsinkBufferProbe, this, nullptr);
     gst_object_unref(appsinkSinkPad);
 
-    gst_bin_add_many(GST_BIN(m_pipeline), m_source, m_appsink, nullptr);
+    gst_bin_add_many(GST_BIN(m_pipeline), source, m_appsink, nullptr);
 
     m_bus = gst_pipeline_get_bus(GST_PIPELINE(m_pipeline));
     m_bitrateByteAccumulator.storeRelaxed(0);
@@ -333,7 +336,6 @@ void RtspStreamPipeline::teardownPipeline()
         QMutexLocker locker(&m_pipelineMutex);
         pipeline = m_pipeline;
         m_pipeline = nullptr;
-        m_source = nullptr;
         m_appsink = nullptr;
         if (m_bus) {
             gst_object_unref(m_bus);

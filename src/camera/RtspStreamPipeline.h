@@ -180,7 +180,6 @@ private:
     ReconnectScheduler m_reconnectScheduler;
 
     GstElement *m_pipeline = nullptr;
-    GstElement *m_source = nullptr;
     GstElement *m_appsink = nullptr;
     GstBus *m_bus = nullptr;
     QVector<GstElement *> m_dynamicElements;
