@@ -95,19 +95,19 @@ AppSinkVideoItem *CameraManager::mosaicVideoItem(const QString &id) const
 
 AppSinkVideoItem *CameraManager::fullscreenVideoItem() const
 {
-    return m_fullscreenPipeline ? m_fullscreenPipeline->videoItem() : nullptr;
+    return m_fullscreen ? m_fullscreen->pipeline->videoItem() : nullptr;
 }
 
 QSizeF CameraManager::fullscreenContentSize() const
 {
-    return m_fullscreenPipeline ? m_fullscreenPipeline->videoItem()->contentSize() : QSizeF();
+    return m_fullscreen ? m_fullscreen->pipeline->videoItem()->contentSize() : QSizeF();
 }
 
 void CameraManager::setFullscreenAvailableSize(QSizeF size)
 {
     m_fullscreenAvailableSize = size;
-    if (m_fullscreenPipeline)
-        m_fullscreenPipeline->videoItem()->setAvailableSize(size);
+    if (m_fullscreen)
+        m_fullscreen->pipeline->videoItem()->setAvailableSize(size);
 }
 
 void CameraManager::attachMosaicVideo(const QString &id, QQuickItem *container)
@@ -160,16 +160,15 @@ void CameraManager::enterFullscreen(const QString &id)
 
 void CameraManager::exitFullscreen()
 {
-    if (m_fullscreenId.isEmpty())
+    if (!m_fullscreen)
         return;
     teardownFullscreenPipeline();
-    m_fullscreenId.clear();
-    emit fullscreenIdChanged(m_fullscreenId);
+    emit fullscreenIdChanged(QString());
 }
 
 void CameraManager::switchFullscreenCamera(const QString &id)
 {
-    if (m_fullscreenId == id)
+    if (m_fullscreen && m_fullscreen->cameraId == id)
         return;
 
     CameraRuntime *runtime = runtimeForId(id);
@@ -180,68 +179,66 @@ void CameraManager::switchFullscreenCamera(const QString &id)
     // starts. teardownFullscreenPipeline() stops the whole old pipeline
     // (video included) right after, but disabling audio explicitly first
     // keeps the ordering intent visible and correct even if that changes.
-    if (m_fullscreenPipeline)
-        m_fullscreenPipeline->enableAudio(false);
+    if (m_fullscreen)
+        m_fullscreen->pipeline->enableAudio(false);
     teardownFullscreenPipeline();
 
-    m_fullscreenPipeline = std::make_unique<RtspStreamPipeline>(StreamUrlPolicy::fullscreenUrl(*runtime->config));
-    connect(m_fullscreenPipeline.get(), &RtspStreamPipeline::stateChanged, this, &CameraManager::fullscreenStatusChanged);
-    connect(m_fullscreenPipeline.get(), &RtspStreamPipeline::reconnectInfoChanged, this,
-            &CameraManager::fullscreenStatusChanged);
-    connect(m_fullscreenPipeline.get(), &RtspStreamPipeline::hasAudioChanged, this,
-            &CameraManager::fullscreenStatusChanged);
+    auto pipeline = std::make_unique<RtspStreamPipeline>(StreamUrlPolicy::fullscreenUrl(*runtime->config));
+    connect(pipeline.get(), &RtspStreamPipeline::stateChanged, this, &CameraManager::fullscreenStatusChanged);
+    connect(pipeline.get(), &RtspStreamPipeline::reconnectInfoChanged, this, &CameraManager::fullscreenStatusChanged);
+    connect(pipeline.get(), &RtspStreamPipeline::hasAudioChanged, this, &CameraManager::fullscreenStatusChanged);
     // SPEC §34: re-forwarded on every switch since it's a new AppSinkVideoItem
     // each time -- see fullscreenContentSize()'s own comment.
-    connect(m_fullscreenPipeline->videoItem(), &AppSinkVideoItem::contentSizeChanged, this,
+    connect(pipeline->videoItem(), &AppSinkVideoItem::contentSizeChanged, this,
             &CameraManager::fullscreenContentSizeChanged);
-    m_fullscreenPipeline->videoItem()->setAvailableSize(m_fullscreenAvailableSize);
+    pipeline->videoItem()->setAvailableSize(m_fullscreenAvailableSize);
     if (m_started)
-        m_fullscreenPipeline->start();
-    m_fullscreenPipeline->enableAudio(true); // SPEC §13: fullscreen audio is automatic, no config flag
+        pipeline->start();
+    pipeline->enableAudio(true); // SPEC §13: fullscreen audio is automatic, no config flag
 
-    m_fullscreenId = id;
-    emit fullscreenIdChanged(m_fullscreenId);
+    m_fullscreen = FullscreenSession{ id, std::move(pipeline) };
+    emit fullscreenIdChanged(id);
     emit fullscreenStatusChanged();
     emit fullscreenContentSizeChanged();
 }
 
 void CameraManager::teardownFullscreenPipeline()
 {
-    if (!m_fullscreenPipeline)
+    if (!m_fullscreen)
         return;
-    m_fullscreenPipeline->enableAudio(false);
-    m_fullscreenPipeline->stop();
-    m_fullscreenPipeline.reset();
+    m_fullscreen->pipeline->enableAudio(false);
+    m_fullscreen->pipeline->stop();
+    m_fullscreen.reset();
     emit fullscreenStatusChanged();
 }
 
 QVariantMap CameraManager::fullscreenStatus() const
 {
-    if (!m_fullscreenPipeline)
+    if (!m_fullscreen)
         return {};
     const CameraRuntime *runtime = nullptr;
     for (const auto &r : m_runtimes) {
-        if (r.config->id == m_fullscreenId) {
+        if (r.config->id == m_fullscreen->cameraId) {
             runtime = &r;
             break;
         }
     }
     return {
-        { QStringLiteral("cameraId"), m_fullscreenId },
+        { QStringLiteral("cameraId"), m_fullscreen->cameraId },
         { QStringLiteral("name"), runtime ? runtime->config->name : QString() },
-        { QStringLiteral("state"), static_cast<int>(m_fullscreenPipeline->state()) },
-        { QStringLiteral("hasAudio"), m_fullscreenPipeline->hasAudio() },
-        { QStringLiteral("reconnectSeconds"), m_fullscreenPipeline->reconnectSecondsRemaining() },
-        { QStringLiteral("reconnectBackoff"), m_fullscreenPipeline->reconnectBackoffSeconds() },
-        { QStringLiteral("reconnectCount"), m_fullscreenPipeline->reconnectCount() },
+        { QStringLiteral("state"), static_cast<int>(m_fullscreen->pipeline->state()) },
+        { QStringLiteral("hasAudio"), m_fullscreen->pipeline->hasAudio() },
+        { QStringLiteral("reconnectSeconds"), m_fullscreen->pipeline->reconnectSecondsRemaining() },
+        { QStringLiteral("reconnectBackoff"), m_fullscreen->pipeline->reconnectBackoffSeconds() },
+        { QStringLiteral("reconnectCount"), m_fullscreen->pipeline->reconnectCount() },
     };
 }
 
 QVariantMap CameraManager::fullscreenDiagnostics() const
 {
-    if (!m_fullscreenPipeline)
+    if (!m_fullscreen)
         return {};
-    const Diagnostics d = m_fullscreenPipeline->diagnostics();
+    const Diagnostics d = m_fullscreen->pipeline->diagnostics();
     return {
         { QStringLiteral("videoCodec"), d.videoCodec },
         { QStringLiteral("width"), d.width },

@@ -19,6 +19,7 @@
 #include <QVariantMap>
 #include <QVector>
 #include <memory>
+#include <optional>
 
 // Owns camera pipeline lifecycle. Mosaic (sub-or-main, SPEC §32) pipelines
 // are created for every camera and run continuously once start() is called
@@ -35,7 +36,7 @@ public:
     explicit CameraManager(AppConfig config, QObject *parent = nullptr);
 
     CameraListModel *listModel() const { return m_listModel; }
-    QString currentFullscreenId() const { return m_fullscreenId; }
+    QString currentFullscreenId() const { return m_fullscreen ? m_fullscreen->cameraId : QString(); }
     Q_INVOKABLE QString firstCameraId() const { return m_runtimes.isEmpty() ? QString() : m_runtimes.first().config->id; }
 
     QStringList cameraIds() const;
@@ -103,14 +104,23 @@ private:
         RtspStreamPipeline *mosaicPipeline = nullptr;
     };
 
+    // Always set/cleared together (switchFullscreenCamera() builds
+    // both, teardownFullscreenPipeline() drops both) -- one optional
+    // instead of a QString + a unique_ptr that had to be kept in sync
+    // by hand makes "there is no fullscreen camera right now" a single
+    // state instead of an invariant between two fields.
+    struct FullscreenSession {
+        QString cameraId;
+        std::unique_ptr<RtspStreamPipeline> pipeline;
+    };
+
     CameraRuntime *runtimeForId(const QString &id);
     void teardownFullscreenPipeline();
 
     AppConfig m_config;
     CameraListModel *m_listModel;
     QVector<CameraRuntime> m_runtimes;
-    QString m_fullscreenId;
-    std::unique_ptr<RtspStreamPipeline> m_fullscreenPipeline;
+    std::optional<FullscreenSession> m_fullscreen;
     QSizeF m_fullscreenAvailableSize;
     bool m_started = false;
 };
