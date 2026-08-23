@@ -74,7 +74,21 @@ Item {
         anchors.fill: parent
         property point lastPos
 
-        onWheel: (wheel) => navigationController.handleWheelZoom(wheel.angleDelta.y, Qt.point(wheel.x, wheel.y))
+        // macOS trackpad/mouse momentum scrolling keeps delivering wheel
+        // events for ~1-2s after the physical gesture ends, decaying to
+        // nothing -- indistinguishable from real user ticks by
+        // angleDelta alone. Qt tags those with Qt.ScrollMomentum in
+        // wheel.phase (Qt.NoScrollPhase on hardware/platforms with no
+        // momentum concept, e.g. a plain wheel mouse or X11 -- never
+        // filtered there). Without this, a momentum tail still in
+        // flight from an earlier zoom gesture would keep calling
+        // handleWheelZoom() after a ResetZoom (Escape) or a +/- key
+        // press, silently re-zooming on top of it.
+        onWheel: (wheel) => {
+            if (wheel.phase === Qt.ScrollMomentum)
+                return
+            navigationController.handleWheelZoom(wheel.angleDelta.y, Qt.point(wheel.x, wheel.y))
+        }
 
         onPressed: (mouse) => { lastPos = Qt.point(mouse.x, mouse.y) }
 
