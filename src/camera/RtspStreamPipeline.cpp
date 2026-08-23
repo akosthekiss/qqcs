@@ -346,7 +346,6 @@ void RtspStreamPipeline::teardownPipeline()
             m_audioPad = nullptr;
         }
         m_audioElements.clear();
-        m_audioElementSet.clear();
         m_audioPlaybackError = false;
         m_dynamicElements.clear();
     }
@@ -388,7 +387,7 @@ void RtspStreamPipeline::pollBus()
 void RtspStreamPipeline::handleBusMessage(GstMessage *message)
 {
     // Runs on the GUI thread (via pollBus()'s timer), but still needs
-    // the lock: it reads m_audioElementSet directly below, which
+    // the lock: it reads m_audioElements directly below, which
     // handlePadAdded/buildAudioBranch (running on a GStreamer thread,
     // see their own comments) can be writing concurrently.
     QMutexLocker locker(&m_pipelineMutex);
@@ -398,10 +397,13 @@ void RtspStreamPipeline::handleBusMessage(GstMessage *message)
         gchar *debug = nullptr;
         gst_message_parse_error(message, &err, &debug);
         // SPEC §13: audio failures must never affect video/CameraState.
-        // Identify the failing element by direct pointer membership rather
-        // than name-prefix matching, so this can't misfire on a
-        // coincidentally-named video element.
-        if (m_audioElementSet.contains(GST_ELEMENT(GST_MESSAGE_SRC(message)))) {
+        // Identify the failing element by direct pointer membership
+        // rather than name-prefix matching, so this can't misfire on a
+        // coincidentally-named video element. A handful of elements at
+        // most, so a linear scan costs nothing -- no need for a second
+        // container (a QSet) kept in lockstep with m_audioElements just
+        // for O(1) lookup here.
+        if (m_audioElements.contains(GST_ELEMENT(GST_MESSAGE_SRC(message)))) {
             qCWarning(lcCamera).noquote() << m_rtspUrl << "audio playback error:" << (err ? err->message : "unknown");
             if (err)
                 g_error_free(err);
@@ -689,7 +691,6 @@ void RtspStreamPipeline::buildAudioBranch()
     gst_object_unref(queueSinkPad);
 
     m_audioElements = { queue, decodebin, convert, resample, sink };
-    m_audioElementSet = { queue, decodebin, convert, resample, sink };
     m_audioPlaybackError = false;
 
     // See audioSinkFellBackToFakesink()'s comment: this is the one audio-
@@ -745,7 +746,6 @@ void RtspStreamPipeline::teardownAudioBranch()
         for (GstElement *element : elements)
             gst_object_ref(element);
         m_audioElements.clear();
-        m_audioElementSet.clear();
     }
     QMetaObject::invokeMethod(
         qApp,

@@ -14,7 +14,6 @@
 #include <QAtomicInteger>
 #include <QObject>
 #include <QRecursiveMutex>
-#include <QSet>
 #include <QString>
 #include <QTimer>
 #include <QVector>
@@ -189,7 +188,6 @@ private:
     bool m_audioPlaybackError = false;
     GstPad *m_audioPad = nullptr; // the RTP audio src pad from rtspsrc, once seen
     QVector<GstElement *> m_audioElements; // queue/decodebin/audioconvert/audioresample/autoaudiosink
-    QSet<GstElement *> m_audioElementSet; // same elements, for O(1) bus-error-source isolation
 
     QTimer m_busPollTimer;
 
