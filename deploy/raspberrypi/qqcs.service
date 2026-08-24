@@ -21,7 +21,7 @@ ConditionPathExists=/etc/qqcs/config.yaml
 Type=simple
 User=qqcs
 Group=qqcs
-SupplementaryGroups=video render input tty
+SupplementaryGroups=video render input tty audio
 # eglfs/KMS: renders directly to /dev/dri, no X11/Wayland compositor
 # required. Recommended default for this always-on kiosk use case. The
 # platform is chosen here, via environment, not compiled into the binary --

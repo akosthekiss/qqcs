@@ -387,7 +387,15 @@ Only PCMA/PCMU/AAC/MPEG4-GENERIC/OPUS RTP payloads are recognized as
 decodable; check the diagnostics overlay's "Audio codec" field — if it
 shows a codec name but audio still doesn't play, check
 `journalctl`/stderr for an "audio playback error", which is isolated
-from video and won't otherwise crash anything.
+from video and won't otherwise crash anything. If that's paired with
+ALSA errors (`cannot find card`, `Unknown PCM default`) when running as
+the `qqcs.service` system user, it's almost always missing `audio`
+group membership rather than a codec problem: `sudo -u qqcs groups`
+should list `audio` (added to `SupplementaryGroups=` in `qqcs.service`
+and to the system user by `postinst`); if it's missing on an existing
+install, either edit the installed unit's `SupplementaryGroups=` line
+and `sudo systemctl daemon-reload && sudo systemctl restart qqcs`, or
+reinstall the package so `postinst` re-adds the group.
 
 **HDMI-CEC doesn't respond to the TV remote.** Confirm the build was
 compiled with `QQCS_ENABLE_CEC=ON` (default on Pi) and that

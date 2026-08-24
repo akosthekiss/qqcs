@@ -19,7 +19,7 @@ case "$1" in
             adduser --system --group --no-create-home \
                 --home /nonexistent --shell /usr/sbin/nologin qqcs
         fi
-        for grp in video render input; do
+        for grp in video render input audio; do
             if getent group "$grp" >/dev/null 2>&1; then
                 adduser qqcs "$grp" >/dev/null 2>&1 || true
             fi
