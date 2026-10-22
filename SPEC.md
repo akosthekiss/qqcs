@@ -565,19 +565,19 @@ In fullscreen view (including zoomed), additionally:
 Examples:
 
 ```text
-● LIVE  FRONT DOOR              (mosaic)
+FRONT DOOR  ● LIVE              (mosaic)
 ```
 
 ```text
-● LIVE (WITH AUDIO)  FRONT DOOR  (fullscreen)
+FRONT DOOR  ● LIVE (WITH AUDIO)  (fullscreen)
 ```
 
 ```text
-● LIVE (NO AUDIO)  GARDEN        (fullscreen)
+GARDEN  ● LIVE (NO AUDIO)        (fullscreen)
 ```
 
 ```text
-● LOST  FRONT DOOR
+FRONT DOOR  ● LOST
 Reconnect: 4s
 ```
 

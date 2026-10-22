@@ -61,8 +61,8 @@ Item {
                 color: root.stateColor
                 font.pixelSize: 18
                 font.bold: true
-                text: "● " + root.stateText + root.audioSuffix
-                      + (root.showName ? "  " + root.cameraName.toUpperCase() : "")
+                text: (root.showName ? root.cameraName.toUpperCase() + "  " : "")
+                      + "● " + root.stateText + root.audioSuffix
             }
 
             Text {
