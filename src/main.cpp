@@ -12,11 +12,14 @@
 #include "navigation/NavigationController.h"
 
 #include <QGuiApplication>
+#include <QIcon>
 #include <QKeyEvent>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
+#include <QStyleHints>
 #include <QTimer>
+#include <QWindow>
 
 #include <gst/gst.h>
 
@@ -33,12 +36,38 @@ QString resolveConfigPath(const QStringList &args)
     return ConfigModel::resolveDefaultPath();
 }
 
+// Shown in the window frame (where the platform has room for one) and the
+// taskbar/Dock. Whether and where it actually appears is up to the window
+// manager. An Unknown color scheme (e.g., no desktop theme at all, as on
+// the Pi's eglfs) falls back to the light variant.
+void setAppIcon(Qt::ColorScheme colorScheme)
+{
+    QString prefix = QStringLiteral(":/icons/");
+#ifdef Q_OS_MACOS
+    prefix += QStringLiteral("macos/");
+#endif
+    prefix += colorScheme == Qt::ColorScheme::Dark ? QStringLiteral("dark") : QStringLiteral("light");
+
+    QIcon icon;
+    for (const int size : { 16, 24, 32, 48, 64, 128, 256, 512, 1024 })
+        icon.addFile(QStringLiteral("%1/app-icon-%2.png").arg(prefix).arg(size), QSize(size, size));
+
+    QGuiApplication::setWindowIcon(icon);
+    // Already existing windows are updated explicitly as well, so that a
+    // runtime color scheme change reaches them too, not just new ones.
+    for (QWindow *window : QGuiApplication::allWindows())
+        window->setIcon(icon);
+}
+
 } // namespace
 
 int main(int argc, char *argv[])
 {
     gst_init(&argc, &argv);
     QGuiApplication app(argc, argv);
+
+    setAppIcon(QGuiApplication::styleHints()->colorScheme());
+    QObject::connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, &app, &setAppIcon);
 
     ConfigModel configModel;
     const QString configPath = resolveConfigPath(app.arguments());

@@ -89,6 +89,27 @@ qt_add_qml_module(qqcs
         qml/DiagnosticsOverlay.qml
 )
 
+# Window/taskbar icon, set at runtime via QGuiApplication::setWindowIcon
+# and switched between its light and dark variants whenever the color
+# scheme changes (see main.cpp) -- copied from the Qt export of the qqcs
+# icon pack. macOS gets its own variants, whose tile inset and camera size
+# match Dock conventions.
+set(QQCS_ICON_VARIANTS light dark)
+if (APPLE)
+    list(APPEND QQCS_ICON_VARIANTS macos/light macos/dark)
+endif()
+set(QQCS_ICON_FILES)
+foreach (variant IN LISTS QQCS_ICON_VARIANTS)
+    foreach (size 16 24 32 48 64 128 256 512 1024)
+        list(APPEND QQCS_ICON_FILES icons/${variant}/app-icon-${size}.png)
+    endforeach()
+endforeach()
+qt_add_resources(qqcs "app_icons"
+    PREFIX "/icons"
+    BASE icons
+    FILES ${QQCS_ICON_FILES}
+)
+
 target_link_libraries(qqcs PRIVATE
     Qt6::Core
     Qt6::Quick
